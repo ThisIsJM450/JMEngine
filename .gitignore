@@ -1,0 +1,8 @@
+# Visual Studio 임시 파일 제외
+.vs/
+x64/
+Debug/
+Release/
+*.pdb
+*.ipch
+*.db
