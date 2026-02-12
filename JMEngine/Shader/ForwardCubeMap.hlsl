@@ -1,6 +1,6 @@
 #include "CommonCBuffers.hlsl"
-#include "CommonTexture.hlsl"
-SamplerState CubeMapSampler : register(s2);
+#include "CommonIBL.hlsl"
+
 
 struct VSIn 
 { 
@@ -12,38 +12,37 @@ struct VSIn
 struct VSOut
 {
     float4 posH    : SV_Position;
-    float3 worldPos: TEXCOORD0;  // 추가
+    float3 dirW : TEXCOORD0;  // 추가
 };
 
 VSOut VSMain(VSIn vin)
 {
-    VSOut o;
+    VSOut vout;
 
-    // 큐브를 카메라 중심에 고정
-    float3 worldPos = vin.pos + gCamPos;
+    // 카메라 회전만 적용 (translation 제거)
+    float4x4 viewNoTrans = gView;
+    viewNoTrans._41 = 0.0;
+    viewNoTrans._42 = 0.0;
+    viewNoTrans._43 = 0.0;
 
-    o.worldPos = worldPos;
-    o.posH = mul(float4(worldPos, 1.0f), gViewProj);
+    // 큐브 정점 방향을 월드/뷰 회전에 맞춰 샘플링 방향으로 사용
+    float3 dir = vin.pos;
 
-    return o;
-}
+    // 스카이 박스는 멀리 있다고 가정하고 위치는 시야에만 맞춰줌
+    float4 posV = mul(float4(vin.pos, 1.0), viewNoTrans);
+    float4 posH = mul(posV, gProj);
 
-static const float PI = 3.14159265359f;
+    // 깊이 문제 방지: 항상 가장 뒤에 그려지도록 (z = w)
+    posH.z = posH.w;
 
-float2 DirToLatLongUV(float3 dir)
-{
-    dir = normalize(dir);
+    vout.posH = posH;
+    vout.dirW = dir; // 이 dir은 큐브 메쉬가 카메라 중심에 있다고 가정한 방향
 
-    float u = 0.5f + atan2(dir.z, dir.x) / (2.0f * PI);
-    float v = 0.5f - asin(clamp(dir.y, -1.0f, 1.0f)) / PI;
-
-    return float2(frac(u), saturate(v));
+    return vout;
 }
 
 float4 PSMain(VSOut pin) : SV_Target
 {
-    // 카메라 기준 방향 (픽셀 단위로 확정)
-    float3 dir = normalize(pin.worldPos - gCamPos);
-    float2 uv = DirToLatLongUV(dir);
-    return ParamTexture[0].Sample(CubeMapSampler, uv);
+    float3 dir = normalize(pin.dirW);
+    return gCubeMap.SampleLevel(CubeMapSampler, dir, 0);
 }

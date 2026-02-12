@@ -2,6 +2,7 @@
 
 #include <__msvc_filebuf.hpp>
 
+#include "../Editor/EditorContext.h"
 #include "../Graphics/Mesh/MeshLoader.h"
 #include "../Scene/Utils/MeshFactory.h"
 
@@ -42,10 +43,19 @@ AppBase::AppBase(const AppDesc& Desc)
        }
     });
     
+    GEditor.renderer = m_Renderer.get();
+    GEditor.world = m_World.get();
+    
     m_ImGuiHandler = std::make_unique<ImGuiHandler>();
     m_ImGuiHandler->Init(ImVec2(Desc.Width, Desc.Height), m_Window.get(), m_Gfx.get());
-    m_ImGuiHandler->world = m_World.get();
-    m_ImGuiHandler->renderer = m_Renderer.get();
+    
+    m_AssetRegistry = std::make_shared<AssetRegistry>();
+    m_AssetRegistry->SetContentRoot("D:\\Projects\\JMEngine\\Contents\\");
+    m_AssetRegistry->SetDatabasePath("D:\\Projects\\JMEngine\\AssetRegistry.json");
+    if (!m_AssetRegistry->LoadFromDisk())
+    {
+        m_AssetRegistry->ScanAll();
+    }
     
     assert(s_Instance == nullptr); // 무조건 하나만 만들어져야한다.
     s_Instance = this;
@@ -97,6 +107,9 @@ void AppBase::Render()
 {
     m_Gfx->BeginFrame();
     m_Renderer->Render(*m_Gfx, m_World->GetScene());
+    
+    //IMGUI Render 전
+    m_Gfx->BindBackbuffer();
     m_ImGuiHandler->Render();
     m_Gfx->EndFrame();
 }

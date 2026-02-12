@@ -5,6 +5,8 @@
 
 cbuffer CBFrame  : register(b0) 
 { 
+    float4x4 gView; 
+    float4x4 gProj; 
     float4x4 gViewProj; 
     float3 gCamPos; 
     float gPad0; 
@@ -43,11 +45,17 @@ cbuffer CBLightPhong : register(b4)
     float gPadPhong2;
 };
 
-cbuffer CBMaterial : register(b5)
+cbuffer MaterialCB : register(b5)
 {
-    float4 gBaseColor;      // xyz = color, w = alpha
-    float  gRoughness;
-    float  gMetallic;
-    float  gPadM0;
-    float  gPadM1;
+    float4 gBaseColorFactor;   // (1,1,1,1) 기본
+    float  gRoughnessFactor;   // 기본 1
+    float  gMetallicFactor;    // 기본 0
+    float  gNormalScale;       // 기본 1 (원하면)
+    float  gAOFactor;          // 기본 1
+    float3 gEmissiveFactor;    // 기본 0
+
+    uint   gPackedMR_GB;       // 1이면 t2에서 G=Rough, B=Metal / 0이면 분리 metallic로 보고 R=Metal
+    uint   gUseNormalMap;      // 1이면 normal map 사용
+    uint   gUseGlossMap;      // 1이면 Gloss map 사용
+    uint   gMaterialCB_Pad0;
 };

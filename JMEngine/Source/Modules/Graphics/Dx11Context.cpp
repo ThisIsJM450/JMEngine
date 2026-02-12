@@ -41,12 +41,63 @@ Dx11Context::Dx11Context(HWND hwnd, int width, int height)
 
 void Dx11Context::InitBasicPipeline(const wchar_t* forwardHlslPath, const wchar_t* shadowHlslPath, const wchar_t* gsHlslPath)
 {
-    m_BasicMaterial = std::make_shared<Material>(forwardHlslPath, forwardHlslPath, gsHlslPath);
-    m_BasicMaterial->SetShadowVSPath(shadowHlslPath);
+    m_BasicMaterial = std::make_shared<Material>();
+    m_BasicMaterial->psPath = forwardHlslPath;
+    m_BasicMaterial->psPath_Shadow = shadowHlslPath;
+    m_BasicMaterial->gsPath = gsHlslPath;
 
     m_BasicMaterialInstance = std::make_shared<MaterialInstance>(m_BasicMaterial);
     m_BasicMaterialInstance->SetTexture(0, TextureFileName::GetTexture_Wall());
-    m_BasicMaterialInstance->SetBaseColor(XMFLOAT4(1, 1, 1, 1));
+    
+    m_StoneBrickMaterialInstance = std::make_shared<MaterialInstance>(m_BasicMaterial);
+    {
+        // 슬롯 가정: 0=Albedo(BaseColor), 1=Normal, 2=MetallicRoughness(또는 Metallic), 3=AO, 4=Emissive
+
+        m_StoneBrickMaterialInstance->SetTexture(0, TextureFileName::GetTexture_StoneBricks_Albedo());
+        m_StoneBrickMaterialInstance->SetTexture(1, TextureFileName::GetTexture_StoneBricks_Normal());
+        m_StoneBrickMaterialInstance->SetTexture(2, TextureFileName::GetTexture_StoneBricks_Gloss());
+        m_StoneBrickMaterialInstance->SetTexture(3, TextureFileName::GetTexture_StoneBricks_AO());
+        m_StoneBrickMaterialInstance->SetBaseColor(XMFLOAT4(1, 1, 1, 1));
+        m_StoneBrickMaterialInstance->SetRoughness(0.5f);
+        m_StoneBrickMaterialInstance->SetMetallic(0.f);
+        m_StoneBrickMaterialInstance->SetUseGlossMap(true);
+        m_StoneBrickMaterialInstance->SetUseNormalMap(true);
+        m_StoneBrickMaterialInstance->SetUsePackedMetalRough(true);
+    }
+
+    
+    m_MetalGoldPaintMaterialInstance = std::make_shared<MaterialInstance>(m_BasicMaterial);
+    {
+        m_MetalGoldPaintMaterialInstance->SetTexture(0, TextureFileName::GetTexture_MetalGoldPaint_Albedo());
+        m_MetalGoldPaintMaterialInstance->SetTexture(1, TextureFileName::GetTexture_MetalGoldPaint_Normal());
+        m_MetalGoldPaintMaterialInstance->SetTexture(2, TextureFileName::GetTexture_MetalGoldPaint_Metallic());
+        m_MetalGoldPaintMaterialInstance->SetTexture(3, TextureFileName::GetTexture_MetalGoldPaint_AO());
+        m_MetalGoldPaintMaterialInstance->SetTexture(5, TextureFileName::GetTexture_MetalGoldPaint_Roughness());
+        m_MetalGoldPaintMaterialInstance->SetBaseColor(XMFLOAT4(1, 1, 1, 1));
+        m_MetalGoldPaintMaterialInstance->SetRoughness(0.3f);
+        m_MetalGoldPaintMaterialInstance->SetMetallic(1.f);
+        m_MetalGoldPaintMaterialInstance->SetUseNormalMap(true);
+    }
+
+    
+    m_GrassPatchyGroundMaterialInstance = std::make_shared<MaterialInstance>(m_BasicMaterial);
+    {
+        m_GrassPatchyGroundMaterialInstance->SetTexture(0, TextureFileName::GetTexture_GrassPatchyGround_Albedo());
+        m_GrassPatchyGroundMaterialInstance->SetTexture(1, TextureFileName::GetTexture_GrassPatchyGround_Normal());
+        m_GrassPatchyGroundMaterialInstance->SetTexture(2, TextureFileName::GetTexture_GrassPatchyGround_Metallic());
+        m_GrassPatchyGroundMaterialInstance->SetTexture(3, TextureFileName::GetTexture_GrassPatchyGround_AO());
+        m_GrassPatchyGroundMaterialInstance->SetTexture(5, TextureFileName::GetTexture_GrassPatchyGround_Roughness());
+        m_GrassPatchyGroundMaterialInstance->SetBaseColor(XMFLOAT4(1, 1, 1, 1));
+        m_GrassPatchyGroundMaterialInstance->SetRoughness(1.f);
+        m_GrassPatchyGroundMaterialInstance->SetMetallic(0.0f);
+        m_GrassPatchyGroundMaterialInstance->SetUseNormalMap(true);
+    }
+    
+    m_WhiteMaterialInstance = std::make_shared<MaterialInstance>(m_BasicMaterial);
+    {
+        m_WhiteMaterialInstance->SetTexture(0, TextureFileName::GetTexture_White());
+    }
+
 }
 
 void Dx11Context::BeginFrame()
@@ -112,6 +163,8 @@ void Dx11Context::Resize(int newWidth, int newHeight)
 
     m_RTV.Reset();
     m_DSV.Reset();
+    m_SRV.Reset();
+    m_BackBufferRTV.Reset();
 
     // 스왑 체인 버퍼 리사이즈
     HRESULT hr  = m_SwapChain->ResizeBuffers(
@@ -129,6 +182,11 @@ void Dx11Context::Resize(int newWidth, int newHeight)
 }
 
 void Dx11Context::BindBackbuffer()
+{
+    m_Ctx->OMSetRenderTargets(1, m_BackBufferRTV.GetAddressOf(), m_DSV.Get());
+}
+
+void Dx11Context::BindViewbuffer()
 {
     m_Ctx->OMSetRenderTargets(1, m_RTV.GetAddressOf(), m_DSV.Get());
 }
@@ -157,6 +215,26 @@ void Dx11Context::DrawMeshForward(const GPUMesh& meshData, Material* material, c
 MaterialInstance* Dx11Context::GetBasicMaterialInstance() const
 {
     return m_BasicMaterialInstance.get();
+}
+
+std::shared_ptr<MaterialInstance> Dx11Context::GetStoneBrickMaterialInstance() const
+{
+    return m_StoneBrickMaterialInstance;
+}
+
+std::shared_ptr<MaterialInstance> Dx11Context::GetMetalGoldPaintMaterialInstance() const
+{
+    return m_MetalGoldPaintMaterialInstance;
+}
+
+std::shared_ptr<MaterialInstance> Dx11Context::GetGrassPatchyGroundMaterialInstance() const
+{
+    return m_GrassPatchyGroundMaterialInstance;
+}
+
+std::shared_ptr<MaterialInstance> Dx11Context::GetWhiteMaterialInstance() const
+{
+    return m_WhiteMaterialInstance;
 }
 
 void Dx11Context::CreateHDRRTVAndDSV()
@@ -223,14 +301,24 @@ void Dx11Context::CreateDeviceAndSwapChain(HWND hwnd)
 void Dx11Context::CreateRTVAndDSV()
 {
     // RTV
-    ComPtr<ID3D11Texture2D> backBuffer;
-    CheckHR(
-        m_SwapChain->GetBuffer(0, IID_PPV_ARGS(backBuffer.GetAddressOf())),
-        L"CreateRTVAndDSV() falied, because RTV"
-    );
-    if (backBuffer)
     {
-        m_Device->CreateRenderTargetView(backBuffer.Get(), NULL, m_RTV.GetAddressOf());
+        D3D11_TEXTURE2D_DESC desc{};
+        desc.Width = m_Width;
+        desc.Height = m_Height;
+        desc.MipLevels = 1;
+        desc.ArraySize = 1;
+        desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM; // LDR 
+        desc.SampleDesc.Count = 1;
+        desc.Usage = D3D11_USAGE_DEFAULT;
+        desc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+        m_Device->CreateTexture2D(&desc, nullptr, m_Tex.GetAddressOf());
+        m_Device->CreateRenderTargetView(m_Tex.Get(), nullptr, m_RTV.GetAddressOf());
+        m_Device->CreateShaderResourceView(m_Tex.Get(), nullptr, m_SRV.GetAddressOf());
+        
+        // backBuffer
+        ComPtr<ID3D11Texture2D> backBuffer;
+        m_SwapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
+        m_Device->CreateRenderTargetView(backBuffer.Get(), nullptr, m_BackBufferRTV.GetAddressOf());
     }
     // ~ RTV
 
@@ -255,6 +343,7 @@ void Dx11Context::CreateRTVAndDSV()
     L"CreateRTVAndDSV() falied, because DSV DepthStencilView is not Created."
     );
     // ~ DSV
+    
 }
 
 void Dx11Context::SetViewport()

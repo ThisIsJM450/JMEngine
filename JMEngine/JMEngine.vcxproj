@@ -124,9 +124,24 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <None Include="Shader\CommonCBuffers.hlsl" />
+    <None Include="Shader\CommonLights.hlsl" />
+    <None Include="Shader\CommonShadow.hlsl" />
+    <None Include="Shader\CommonTexture.hlsl" />
+    <None Include="Shader\DebugShader.hlsl" />
+    <None Include="Shader\ForwardCubeMap.hlsl" />
+    <None Include="Shader\ForwardLit.hlsl" />
+    <None Include="Shader\ShadowDepth.hlsl" />
+    <None Include="Shader\ToneMap.hlsl" />
+    <None Include="Shader\CommonIBL.hlsl" />
+    <None Include="Shader\SkinnedVS.hlsl" />
     <ClCompile Include="Source\main.cpp" />
     <ClCompile Include="Source\Modules\Core\AppBase.cpp" />
     <ClCompile Include="Source\Modules\Core\Assert\CoreAssert.cpp" />
+    <ClCompile Include="Source\Modules\Core\Asset\AssetRegistry.cpp" />
+    <ClCompile Include="Source\Modules\Core\Asset\AssetType.cpp" />
+    <ClCompile Include="Source\Modules\Core\Object.cpp" />
+    <ClCompile Include="Source\Modules\Core\Ray.cpp" />
     <ClCompile Include="Source\Modules\Core\Settings\RenderSettings.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -284,6 +299,7 @@
     </ClCompile>
     <ClCompile Include="Source\Modules\Core\Utils\Utils.cpp" />
     <ClCompile Include="Source\Modules\Core\Win32Window.cpp" />
+    <ClCompile Include="Source\Modules\Editor\EditorContext.cpp" />
     <ClCompile Include="Source\Modules\Game\Actor.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -361,18 +377,31 @@
       <LinkCompiled>true</LinkCompiled>
       <AdditionalIncludeDirectories>;C:\Users\yoon\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
     </ClCompile>
+    <ClCompile Include="Source\Modules\Game\Actors\CubeMapActor.cpp" />
     <ClCompile Include="Source\Modules\Game\Actors\DirectionalLightActor.cpp" />
     <ClCompile Include="Source\Modules\Game\Actors\SpotLightActor.cpp" />
     <ClCompile Include="Source\Modules\Game\Actors\StaticMeshActor.cpp" />
+    <ClCompile Include="Source\Modules\Game\Animation\AnimInstance.cpp" />
+    <ClCompile Include="Source\Modules\Game\Animation\AnimSequence.cpp" />
+    <ClCompile Include="Source\Modules\Game\Characters\Character.cpp" />
     <ClCompile Include="Source\Modules\Game\Components\ActorComponent.cpp" />
     <ClCompile Include="Source\Modules\Game\Components\DirectionalLightComponent.cpp" />
+    <ClCompile Include="Source\Modules\Game\Components\MeshComponent.cpp" />
+    <ClCompile Include="Source\Modules\Game\Components\PointLightComponent.cpp" />
     <ClCompile Include="Source\Modules\Game\Components\SceneComponent.cpp" />
     <ClCompile Include="Source\Modules\Game\Components\SpotLightComponent.cpp" />
     <ClCompile Include="Source\Modules\Game\Components\StaticMeshComponent.cpp" />
     <ClCompile Include="Source\Modules\Game\MeshData.cpp" />
+    <ClCompile Include="Source\Modules\Game\Skeletal\SkeletalMeshComponent.cpp" />
+    <ClCompile Include="Source\Modules\Game\Skeletal\SkeletalMeshData.cpp" />
+    <ClCompile Include="Source\Modules\Game\Skeletal\SkeletalMeshSceneProxy.cpp" />
     <ClCompile Include="Source\Modules\Game\World.cpp" />
     <ClCompile Include="Source\Modules\Graphics\Dx11Context.cpp" />
+    <ClCompile Include="Source\Modules\Graphics\Importer\FBXImporter_Animation.cpp" />
     <ClCompile Include="Source\Modules\Graphics\Importer\FBXImporter.cpp" />
+    <ClCompile Include="Source\Modules\Graphics\Importer\FBXImportType.cpp" />
+    <ClCompile Include="Source\Modules\Graphics\Importer\FBXImportUtils.cpp" />
+    <ClCompile Include="Source\Modules\Graphics\Importer\FBXMaterialBuilder.cpp" />
     <ClCompile Include="Source\Modules\Graphics\Material\Material.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -455,17 +484,103 @@
     <ClCompile Include="Source\Modules\Graphics\Mesh\MeshLoader.cpp" />
     <ClCompile Include="Source\Modules\Graphics\RenderState.cpp" />
     <ClCompile Include="Source\Modules\Graphics\ShaderProgram.cpp" />
+    <ClCompile Include="Source\Modules\Graphics\ShaderProgram\PassVertexPrograms.cpp" />
+    <ClCompile Include="Source\Modules\Graphics\ShaderProgram\PixelProgram.cpp" />
+    <ClCompile Include="Source\Modules\Graphics\ShaderProgram\ShadercompileUtils.cpp">
+      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <Optimization>Disabled</Optimization>
+      <SupportJustMyCode>true</SupportJustMyCode>
+      <AssemblerOutput>NoListing</AssemblerOutput>
+      <AssemblerListingLocation>x64\Debug\</AssemblerListingLocation>
+      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
+      <BrowseInformation>false</BrowseInformation>
+      <BrowseInformationFile>x64\Debug\</BrowseInformationFile>
+      <CompileAs>Default</CompileAs>
+      <UseDynamicDebugging>false</UseDynamicDebugging>
+      <ConformanceMode>true</ConformanceMode>
+      <DiagnosticsFormat>Column</DiagnosticsFormat>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <ErrorReporting>Prompt</ErrorReporting>
+      <ExpandAttributedSource>false</ExpandAttributedSource>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <EnableASAN>false</EnableASAN>
+      <EnableFuzzer>false</EnableFuzzer>
+      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <EnableVectorLength>NotSet</EnableVectorLength>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <GenerateModuleDependencies>false</GenerateModuleDependencies>
+      <GenerateSourceDependencies>false</GenerateSourceDependencies>
+      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard_C>Default</LanguageStandard_C>
+      <MinimalRebuild>false</MinimalRebuild>
+      <ModuleDependenciesFile>x64\Debug\</ModuleDependenciesFile>
+      <ModuleOutputFile>x64\Debug\</ModuleOutputFile>
+      <OmitDefaultLibName>false</OmitDefaultLibName>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <ObjectFileName>x64\Debug\</ObjectFileName>
+      <CallingConvention>Cdecl</CallingConvention>
+      <ProgramDataBaseFileName>x64\Debug\vc143.pdb</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>stdafx.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>x64\Debug\JMEngine.pch</PrecompiledHeaderOutputFile>
+      <PreprocessToFile>false</PreprocessToFile>
+      <PreprocessKeepComments>false</PreprocessKeepComments>
+      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
+      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <ShowIncludes>false</ShowIncludes>
+      <SourceDependenciesFile>x64\Debug\</SourceDependenciesFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
+      <SpectreMitigation>false</SpectreMitigation>
+      <StructMemberAlignment>Default</StructMemberAlignment>
+      <TrackerLogDirectory>x64\Debug\JMEngine.tlog\</TrackerLogDirectory>
+      <TranslateIncludes>false</TranslateIncludes>
+      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <UseFullPaths>true</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <XMLDocumentationFileName>x64\Debug\</XMLDocumentationFileName>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <IntelJCCErratum>false</IntelJCCErratum>
+      <BuildStlModules>false</BuildStlModules>
+      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
+      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
+      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
+      <PreprocessorDefinitions>_DEBUG;_WINDOWS;_UNICODE;UNICODE;</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <LinkCompiled>true</LinkCompiled>
+      <AdditionalIncludeDirectories>;C:\Users\yoon\vcpkg\installed\x64-windows\include</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="Source\Modules\Graphics\ShaderProgram\SkinnedVertexProgram.cpp" />
+    <ClCompile Include="Source\Modules\Graphics\ShaderProgram\StaticVertexProgram.cpp" />
+    <ClCompile Include="Source\Modules\Graphics\ShaderProgram\VertexProgram.cpp" />
     <ClCompile Include="Source\Modules\Graphics\ShadowMap.cpp" />
     <ClCompile Include="Source\Modules\Graphics\Texture\Texture.cpp" />
     <ClCompile Include="Source\Modules\Input\Input.cpp" />
     <ClCompile Include="Source\Modules\Renderer\Cull\Frustum.cpp" />
     <ClCompile Include="Source\Modules\Renderer\FrameResources.cpp" />
     <ClCompile Include="Source\Modules\Renderer\Material\MaterialInstanceGPUManager.cpp" />
+    <ClCompile Include="Source\Modules\Renderer\Pass\CubeMapPass.cpp" />
     <ClCompile Include="Source\Modules\Renderer\Pass\DebugPass.cpp" />
     <ClCompile Include="Source\Modules\Renderer\Pass\ForwardPass.cpp" />
     <ClCompile Include="Source\Modules\Renderer\Pass\RenderPassBase.cpp" />
     <ClCompile Include="Source\Modules\Renderer\Pass\ShadowPass.cpp" />
     <ClCompile Include="Source\Modules\Renderer\Pass\ToneMapPass.cpp" />
+    <ClCompile Include="Source\Modules\Renderer\RenderData\GPUMesh\GPUMeshBase.cpp" />
+    <ClCompile Include="Source\Modules\Renderer\RenderData\GPUMesh\GPUMeshSkeletal.cpp" />
+    <ClCompile Include="Source\Modules\Renderer\RenderData\GPUMesh\GPUMeshStatic.cpp" />
     <ClCompile Include="Source\Modules\Renderer\Renderer.cpp" />
     <ClCompile Include="Source\Modules\Renderer\SceneProxy\StaticMeshSceneProxy.cpp" />
     <ClCompile Include="Source\Modules\Renderer\SceneView.cpp" />
@@ -474,30 +589,49 @@
     <ClCompile Include="Source\Modules\Scene\Scene.cpp" />
     <ClCompile Include="Source\Modules\Scene\Utils\MeshFactory.cpp" />
     <ClCompile Include="Source\Modules\Scene\Viewport\ViewportClient.cpp" />
+    <ClCompile Include="Source\Modules\UI\ContentBrouwserPanel.cpp" />
     <ClCompile Include="Source\Modules\UI\ImGuiHandler.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\Modules\Core\AppBase.h" />
     <ClInclude Include="Source\Modules\Core\Assert\CoreAssert.h" />
+    <ClInclude Include="Source\Modules\Core\Asset\AssetRegistry.h" />
+    <ClInclude Include="Source\Modules\Core\Asset\AssetType.h" />
     <ClInclude Include="Source\Modules\Core\CoreStruct.h" />
+    <ClInclude Include="Source\Modules\Core\Object.h" />
+    <ClInclude Include="Source\Modules\Core\Ray.h" />
     <ClInclude Include="Source\Modules\Core\Settings\RenderSettings.h" />
     <ClInclude Include="Source\Modules\Core\Timer.h" />
     <ClInclude Include="Source\Modules\Core\Transform.h" />
     <ClInclude Include="Source\Modules\Core\Utils\Utils.h" />
     <ClInclude Include="Source\Modules\Core\Win32Window.h" />
+    <ClInclude Include="Source\Modules\Editor\EditorContext.h" />
     <ClInclude Include="Source\Modules\Game\Actor.h" />
+    <ClInclude Include="Source\Modules\Game\Actors\CubeMapActor.h" />
     <ClInclude Include="Source\Modules\Game\Actors\DirectionalLightActor.h" />
     <ClInclude Include="Source\Modules\Game\Actors\SpotLightActor.h" />
     <ClInclude Include="Source\Modules\Game\Actors\StaticMeshActor.h" />
+    <ClInclude Include="Source\Modules\Game\Animation\AnimInstance.h" />
+    <ClInclude Include="Source\Modules\Game\Animation\AnimSequence.h" />
+    <ClInclude Include="Source\Modules\Game\Characters\Character.h" />
     <ClInclude Include="Source\Modules\Game\Components\ActorComponent.h" />
     <ClInclude Include="Source\Modules\Game\Components\DirectionalLightComponent.h" />
+    <ClInclude Include="Source\Modules\Game\Components\MeshComponent.h" />
+    <ClInclude Include="Source\Modules\Game\Components\PointLightComponent.h" />
     <ClInclude Include="Source\Modules\Game\Components\SceneComponent.h" />
     <ClInclude Include="Source\Modules\Game\Components\SpotLightComponent.h" />
     <ClInclude Include="Source\Modules\Game\Components\StaticMeshComponent.h" />
     <ClInclude Include="Source\Modules\Game\MeshData.h" />
+    <ClInclude Include="Source\Modules\Game\Skeletal\SkeletalMeshComponent.h" />
+    <ClInclude Include="Source\Modules\Game\Skeletal\SkeletalMeshData.h" />
+    <ClInclude Include="Source\Modules\Game\Skeletal\SkeletalMeshSceneProxy.h" />
     <ClInclude Include="Source\Modules\Game\World.h" />
     <ClInclude Include="Source\Modules\Graphics\Dx11Context.h" />
+    <ClInclude Include="Source\Modules\Graphics\Importer\FBXImporter_Animation.h" />
     <ClInclude Include="Source\Modules\Graphics\Importer\FBXImporter.h" />
+    <ClInclude Include="Source\Modules\Graphics\Importer\FBXImportType.h" />
+    <ClInclude Include="Source\Modules\Graphics\Importer\FBXImportUtils.h" />
+    <ClInclude Include="Source\Modules\Graphics\Importer\FBXMaterialBuilder.h" />
     <ClInclude Include="Source\Modules\Graphics\Material\Material.h" />
     <ClInclude Include="Source\Modules\Graphics\Material\MaterialConstants.h" />
     <ClInclude Include="Source\Modules\Graphics\Material\MaterialInstance.h" />
@@ -505,17 +639,27 @@
     <ClInclude Include="Source\Modules\Graphics\Mesh\MeshLoader.h" />
     <ClInclude Include="Source\Modules\Graphics\RenderState.h" />
     <ClInclude Include="Source\Modules\Graphics\ShaderProgram.h" />
+    <ClInclude Include="Source\Modules\Graphics\ShaderProgram\PassVertexPrograms.h" />
+    <ClInclude Include="Source\Modules\Graphics\ShaderProgram\PixelProgram.h" />
+    <ClInclude Include="Source\Modules\Graphics\ShaderProgram\ShadercompileUtils.h" />
+    <ClInclude Include="Source\Modules\Graphics\ShaderProgram\SkinnedVertexProgram.h" />
+    <ClInclude Include="Source\Modules\Graphics\ShaderProgram\StaticVertexProgram.h" />
+    <ClInclude Include="Source\Modules\Graphics\ShaderProgram\VertexProgram.h" />
     <ClInclude Include="Source\Modules\Graphics\ShadowMap.h" />
     <ClInclude Include="Source\Modules\Graphics\Texture\Texture.h" />
     <ClInclude Include="Source\Modules\Input\Input.h" />
     <ClInclude Include="Source\Modules\Renderer\Cull\Frustum.h" />
     <ClInclude Include="Source\Modules\Renderer\FrameResources.h" />
     <ClInclude Include="Source\Modules\Renderer\Material\MaterialInstanceGPUManager.h" />
+    <ClInclude Include="Source\Modules\Renderer\Pass\CubeMapPass.h" />
     <ClInclude Include="Source\Modules\Renderer\Pass\DebugPass.h" />
     <ClInclude Include="Source\Modules\Renderer\Pass\ForwardPass.h" />
     <ClInclude Include="Source\Modules\Renderer\Pass\RenderPassBase.h" />
     <ClInclude Include="Source\Modules\Renderer\Pass\ShadowPass.h" />
     <ClInclude Include="Source\Modules\Renderer\Pass\ToneMapPass.h" />
+    <ClInclude Include="Source\Modules\Renderer\RenderData\GPUMesh\GPUMeshBase.h" />
+    <ClInclude Include="Source\Modules\Renderer\RenderData\GPUMesh\GPUMeshSkeletal.h" />
+    <ClInclude Include="Source\Modules\Renderer\RenderData\GPUMesh\GPUMeshStatic.h" />
     <ClInclude Include="Source\Modules\Renderer\Renderer.h" />
     <ClInclude Include="Source\Modules\Renderer\RenderQueue.h" />
     <ClInclude Include="Source\Modules\Renderer\RenderStruct.h" />
@@ -527,10 +671,11 @@
     <ClInclude Include="Source\Modules\Scene\Scene.h" />
     <ClInclude Include="Source\Modules\Scene\Utils\MeshFactory.h" />
     <ClInclude Include="Source\Modules\Scene\Viewport\ViewportClient.h" />
+    <ClInclude Include="Source\Modules\UI\ContentBrouwserPanel.h" />
     <ClInclude Include="Source\Modules\UI\ImGuiHandler.h" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Source\Modules\Editor\" />
+    <Content Include="Shader\CommonConst.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

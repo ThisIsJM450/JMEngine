@@ -4,7 +4,7 @@
 
 void Actor::Tick(float dt)
 {
-    for (std::unique_ptr<ActorComponent>& c : m_Components)
+    for (std::shared_ptr<ActorComponent>& c : m_Components)
     {
         c->Tick(dt);
     }

@@ -12,6 +12,8 @@
 
 class MeshLoader;
 
+#define GAssetRegistry AppBase::Get().GetAssetRegistry()
+
 struct AppDesc
 {
     HINSTANCE hInstance = nullptr;
@@ -30,6 +32,7 @@ public:
     int Run();
     
     const Win32Window* GetMainWindow() const { return m_Window.get(); }
+    const AssetRegistry* GetAssetRegistry() const { return m_AssetRegistry.get(); }
     
     static AppBase* s_Instance;
 
@@ -45,6 +48,7 @@ private:
     std::unique_ptr<Timer>       m_Timer;
     std::shared_ptr<Input>       m_Input;   
     std::unique_ptr<ImGuiHandler> m_ImGuiHandler;
+    std::shared_ptr<AssetRegistry> m_AssetRegistry;
     
 
 

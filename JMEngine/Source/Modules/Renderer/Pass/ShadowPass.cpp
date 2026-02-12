@@ -4,10 +4,15 @@
 #include "../../Graphics/Material/MaterialInstance.h"
 #include <DirectXMath.h>
 #include <iostream>
+
+#include "../../Graphics/ShaderProgram/PassVertexPrograms.h"
 #include "../Cull/Frustum.h"
 
 
 using namespace DirectX;
+
+
+static PassVertexPrograms g_ShadowVP;
 
 void ShadowPass::Create(Dx11Context& gfx, uint32_t dirRes, uint32_t spotRes)
 {
@@ -31,7 +36,6 @@ void ShadowPass::Execute(Dx11Context& gfx, FrameResources& fr, const SceneView& 
     const std::vector<DirectionalLight>& dirLights, const std::vector<SpotLight>& spotLights, ShadowOutput& output)
 {
     output.directionalMaps.resize(dirLights.size());
-    output.spotMaps.resize(spotLights.size());
 
     Frustum frustum;
     {
@@ -113,6 +117,7 @@ void ShadowPass::Execute(Dx11Context& gfx, FrameResources& fr, const SceneView& 
         XMStoreFloat4x4(&dirLights[i].lightViewProj, XMMatrixTranspose(lightViewProj));
     }
 
+    output.spotMaps.resize(spotLights.size());
     for (size_t i = 0; i < spotLights.size(); ++i)
     {
         if (!output.spotMaps[i].GetDSV())
@@ -136,53 +141,43 @@ void ShadowPass::RenderOneShadow(Dx11Context& gfx, FrameResources& fr, const Ren
 {
     ID3D11DeviceContext* context = gfx.GetContext();
 
-    // DVS만 바인딩 (RTV null)
+    g_ShadowVP.Ensure(gfx.GetDevice(),
+        L"Shader\\ShadowDepth.hlsl",
+        L"Shader\\SkinnedVS.hlsl"
+    );
+
     ID3D11RenderTargetView* nullRTV[1] = { nullptr };
     context->OMSetRenderTargets(0, nullptr, sm.GetDSV());
-
     context->ClearDepthStencilView(sm.GetDSV(), D3D11_CLEAR_DEPTH, 1.f, 0);
     SetViewport(context, (float)sm.GetWidth(), (float)sm.GetHeight());
 
-    // shadow 전용 셰이더 바인딩 : Material::Bind(shadow)로 처리
     for (const RenderItem& it : renderQueue.shadowCasters)
     {
-        if (!it.castShadow ||!it.mesh )
-        {
-            continue;
-        }
-        //it.materialInstance->Bind(gfx.GetDevice(), context, PassType::Shadow);
-        //materialInstanceGPUManager.Bind(gfx.GetDevice(), context, *renderItem.materialInstance, PassType::Shadow);
-   
+        if (!it.castShadow || !it.mesh) continue;
 
         ID3D11Buffer* vb = it.mesh->VB.Get();
         context->IASetVertexBuffers(0, 1, &vb, &it.mesh->Stride, &it.mesh->Offset);
         context->IASetIndexBuffer(it.mesh->IB.Get(), it.mesh->IndexFormat, 0);
         context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-        // object CB 업데이트
         CBObject obj{};
         XMStoreFloat4x4(&obj.world, XMMatrixTranspose(it.world));
         XMStoreFloat4x4(&obj.WVP, XMMatrixTranspose(it.world * lightViewProjection));
-        //obj.Color = {1, 1, 1, 1};
         fr.UpdateObject(context, obj);
-        
-        // Section 마다 나눠서 Draw 요청
+
+        // VS/IL 먼저
+        g_ShadowVP.Bind(context, it.bSkinned);
+
         for (const GPUMeshSection& sec : it.mesh->Sections)
         {
             const uint32_t slot = sec.MaterialIndex;
 
-            MaterialInstance* mi;
-            if (slot < it.materials.size() && it.materials[slot])
-            {
-                mi = it.materials[slot];
-            }
-            else
-            {
-                mi = gfx.GetBasicMaterialInstance();
-            }
+            MaterialInstance* mi = nullptr;
+            if (slot < it.materials.size() && it.materials[slot]) mi = it.materials[slot];
+            else mi = gfx.GetBasicMaterialInstance();
 
+            // Material은 Shadow에서 PS/GS만 끔
             mi->Bind(gfx.GetDevice(), context, PassType::Shadow);
-
             context->DrawIndexed(sec.IndexCount, sec.StartIndex, 0);
         }
     }

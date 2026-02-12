@@ -1,5 +1,4 @@
 ﻿#include "Scene.h"
-#include "../Game/Components/StaticMeshComponent.h"
 #include "../Game/Components/DirectionalLightComponent.h"
 #include "../Game/Components/SpotLightComponent.h"
 #include "../Renderer/SceneProxy/StaticMeshSceneProxy.h"
@@ -7,16 +6,28 @@
 std::vector<StaticMeshSceneProxy*> Scene::GetStaticMesheProxies() const
 {
     std::vector<StaticMeshSceneProxy*> result;
-    for (StaticMeshComponent* sm : m_StaticMeshes)
+    for (auto sm : m_Meshes)
     {
         if (!sm) continue;
 
-        StaticMeshSceneProxy* proxy = sm->GetProxy();
-        if (!proxy || !proxy->Mesh ) // Material 
+        StaticMeshSceneProxy* proxy = dynamic_cast<StaticMeshSceneProxy*>(sm->GetProxy());
+        if (!proxy) 
         {
             continue;
         }
         result.push_back(proxy);
+    }
+    return result;
+}
+
+std::vector<SceneProxyBase*> Scene::GetMesheProxies() const
+{
+    std::vector<SceneProxyBase*> result;
+    for (MeshComponent* sm : m_Meshes)
+    {
+        if (!sm) continue;
+        
+        result.push_back(sm->GetProxy());
     }
     return result;
 }

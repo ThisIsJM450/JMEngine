@@ -3,9 +3,8 @@
 
 StaticMeshActor::StaticMeshActor()
 {
-    Root = CreateComponent<SceneComponent>();
-    SetRootComponent(Root);
+    m_Root = CreateComponent<SceneComponent>();
 
     MeshComp = CreateComponent<StaticMeshComponent>();
-    MeshComp->AttachTo(Root);
+    MeshComp->AttachTo(m_Root);
 }

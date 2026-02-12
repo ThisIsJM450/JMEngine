@@ -9,7 +9,7 @@
 
 class SpotLightComponent;
 class DirectionalLightComponent;
-class StaticMeshComponent;
+class MeshComponent;
 
 class Scene
 {
@@ -21,21 +21,21 @@ public:
     const MeshManager& GetMeshManager() const { return m_MeshManager; }
 
     // ---- Registration (Game thread에서 호출) ----
-    void AddStaticMesh(StaticMeshComponent* c)
+    void AddMesh(MeshComponent* c)
     {
         if (!c) return;
-        if (std::find(m_StaticMeshes.begin(), m_StaticMeshes.end(), c) == m_StaticMeshes.end())
+        if (std::find(m_Meshes.begin(), m_Meshes.end(), c) == m_Meshes.end())
         {
-            m_StaticMeshes.push_back(c);
-            c->meshID = m_StaticMeshes.size() - 1;
+            m_Meshes.push_back(c);
+            c->meshID = m_Meshes.size() - 1;
         }
 
     }
 
-    void RemoveStaticMesh(StaticMeshComponent* c)
+    void RemoveMesh(MeshComponent* c)
     {
-        auto it = std::remove(m_StaticMeshes.begin(), m_StaticMeshes.end(), c);
-        m_StaticMeshes.erase(it, m_StaticMeshes.end());
+        auto it = std::remove(m_Meshes.begin(), m_Meshes.end(), c);
+        m_Meshes.erase(it, m_Meshes.end());
     }
 
     void AddDirectionalLight(DirectionalLightComponent* c)
@@ -65,6 +65,7 @@ public:
     }
 
     std::vector<StaticMeshSceneProxy*> GetStaticMesheProxies() const;
+    std::vector<SceneProxyBase*> GetMesheProxies() const;
     void GetDirectionalLights(std::vector<DirectionalLight>& lights) const;
     void GetSpotLights(std::vector<SpotLight>& lights) const;
 
@@ -73,7 +74,7 @@ private:
     MeshManager m_MeshManager;
 
     
-    std::vector<StaticMeshComponent*> m_StaticMeshes;
+    std::vector<MeshComponent*> m_Meshes;
     std::vector<DirectionalLightComponent*> m_DirLights;
     std::vector<SpotLightComponent*> m_SpotLights;
 };

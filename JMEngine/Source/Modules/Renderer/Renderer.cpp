@@ -56,22 +56,10 @@ void Renderer::BuildRenderQueue(Dx11Context& gfx, const Scene& scene, const Scen
 
     Frustum frustum;
     frustum.Build(view.viewProj);
-    // {
-    //     DirectX::XMFLOAT4X4 P;
-    //     DirectX::XMStoreFloat4x4(&P, view.proj);
-    //
-    //     std::cout << std::fixed << std::setprecision(6);
-    //     std::cout << "\n[ASPECT CHECK]\n";
-    //     std::cout << "  P._11=" << P._11 << "  P._22=" << P._22 << "\n";
-    //     if (std::fabs(P._11) > 1e-6f)
-    //     {
-    //         float approxAspect = P._22 / P._11;
-    //         std::cout << "  approxAspect(P._22/P._11) = " << approxAspect << "\n";
-    //     }
-    // }
     int frustumCullCount = 0;
 
-    const auto& meshes = scene.GetStaticMesheProxies();
+    const auto& meshes = scene.GetMesheProxies();
+    outQueue.cubeMap.reserve(meshes.size());
     outQueue.opaque.reserve(meshes.size());
     outQueue.transparent.reserve(meshes.size());
     outQueue.shadowCasters.reserve(meshes.size());
@@ -79,27 +67,39 @@ void Renderer::BuildRenderQueue(Dx11Context& gfx, const Scene& scene, const Scen
     const MeshManager& MeshManager = scene.GetMeshManager();
     for (uint64_t i = 0; i < meshes.size(); ++i)
     {
-        StaticMeshSceneProxy* proxy = meshes[i];
+        auto* proxy = meshes[i];
         // Frustum 테스트
-        if (frustum.Intersects(proxy->Bounds) == false)
+        if (proxy->IsCubeMap() == false && frustum.Intersects(proxy->GetBounds()) == false)
         {
             frustumCullCount++;
             continue;
         }
 
         RenderItem it{};
-        it.mesh = MeshManager.GetOrCreate(gfx.GetDevice(), proxy->MeshID, *proxy->Mesh);
-        if (proxy->materialInstances.empty())
         {
-            it.materials = {gfx.GetBasicMaterialInstance()};
+            it.mesh = MeshManager.GetOrCreate(gfx.GetDevice(), proxy);
+
+            const auto& mats = proxy->GetMaterialInstances();
+            if (mats.empty())
+            {
+                it.materials = { gfx.GetBasicMaterialInstance() };
+            }
+            else
+            {
+                it.materials = mats;
+            }
+
+            it.world = proxy->GetWorldMatrix();
+            it.castShadow = proxy->GetCastShadow();
+            it.receiveShadow = proxy->GetReceiveShadow();
+            it.bSkinned = it.mesh->IsSkinned();
         }
-        else
+        
+        if (proxy->IsCubeMap())
         {
-            it.materials = proxy->materialInstances;
+            outQueue.cubeMap.push_back(it);
+            continue;
         }
-        it.world = proxy->WorldMatrix;
-        it.castShadow = proxy->CastShadow;
-        it.receiveShadow = proxy->ReceiveShadow;
 
         // TODO: 투명 판정은 Material/MaterialInstance로 하기
         // 일단은 Opaque로만 보냄 (필요하면 여기서 분기)
@@ -136,6 +136,16 @@ void Renderer::GatherLights(const Scene& scene, std::vector<DirectionalLight>& o
     scene.GetSpotLights(outSpot);
 }
 
+void Renderer::SetMainViewport(ID3D11DeviceContext* ctx, int w, int h)
+{
+    D3D11_VIEWPORT vp{};
+    vp.Width = (float)w;
+    vp.Height = (float)h;
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    ctx->RSSetViewports(1, &vp);
+}
+
 SceneView Renderer::BuildSceneView(Dx11Context& gfx, const Scene& scene)
 {
     SceneView v{};
@@ -166,12 +176,12 @@ void Renderer::Render(Dx11Context& gfx, const Scene& scene)
     // 1) Shadow
     m_ShadowPass.Execute(gfx, m_Frame, view, m_Queue, dirLights, spotLights, m_ShadowOut);
 
-    // 2) Forward를 HDRColor에 렌더
+    // HDR Color
     {
         ID3D11DeviceContext* ctx = gfx.GetContext();
 
         ID3D11RenderTargetView* rtv = gfx.GetHDRRTV();
-        ID3D11DepthStencilView* dsv = gfx.GetBackbufferDSV(); // depth는 HDR 처리 필요 없음
+        ID3D11DepthStencilView* dsv = gfx.GetViewBufferDSV(); // depth는 HDR 처리 필요 없음
 
         ctx->OMSetRenderTargets(1, &rtv, dsv);
 
@@ -179,20 +189,25 @@ void Renderer::Render(Dx11Context& gfx, const Scene& scene)
         float clear[4] = {0.07f, 0.07f, 0.10f, 1.0f};
         ctx->ClearRenderTargetView(rtv, clear);
         ctx->ClearDepthStencilView(dsv, D3D11_CLEAR_DEPTH, 1.0f, 0);
-
-        // 이제 ForwardPass는 타겟 건드리지 않고 그냥 draw만
+        SetMainViewport(ctx, gfx.GetWidth(), gfx.GetHeight());
+    }
+    // 2) CubeMap
+    m_CubeMapPass.Execute(gfx, m_Frame, view, m_Queue);
+    
+    // 3) Forward를 HDRColor에 렌더
+    {
         m_ForwardPass.Execute(gfx, m_Frame, view, m_Queue, dirLights, spotLights, m_ShadowOut);
     }
     
-    // 3) DebugPath
+    // 4) DebugPath
     if (RenderSettings::Get().drawNormalVector)
     {
         m_DebugPass.Execute(gfx, m_Frame, view, m_Queue);
     }
 
-    // 4) ToneMap: HDR SRV -> BackBuffer
+    // 5) ToneMap: HDR SRV -> BackBuffer
     {
         // ToneMapPass에 입력 SRV 넘겨주기
-        m_ToneMapPass.Execute(gfx, gfx.GetHDRSRV()); // <- 시그니처 변경 추천
+        m_ToneMapPass.Execute(gfx, gfx.GetHDRSRV()); 
     }
 }

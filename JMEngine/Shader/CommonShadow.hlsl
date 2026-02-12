@@ -19,6 +19,6 @@ float SampleDirShadowPCF(int lightIndex, float3 posWS, float3 normalWS, float3 l
 
     // Bias (slope 기반)
     float NoL = saturate(dot(normalWS, lightDirWS));
-    float bias = max(0.0025, 0.01 * NoL);
+    float bias = max(0.001, 0.01 * NoL);
 	return ShadowTexture[lightIndex].SampleCmpLevelZero(ShadowCmp, uv , depth - bias);
 }

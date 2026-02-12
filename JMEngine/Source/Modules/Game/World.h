@@ -10,12 +10,14 @@ class World : public Actor
 {
 public:
     template<typename T, typename... Args>
-    T* SpawnActor(Args&&... args)
+    T* SpawnActor(const std::string& name, Args&&... args)
     {
         auto sp = std::make_shared<T>(std::forward<Args>(args)...);
         T* raw = sp.get();
         raw->SetWorld(this);
+        raw->SetName(name);
         m_Actors.emplace_back(std::move(sp));
+        raw->SetUniqueId(m_Actors.size());
         if (bBeginPlay)
         {
             raw->BeginPlay();

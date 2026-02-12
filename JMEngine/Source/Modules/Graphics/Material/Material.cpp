@@ -1,7 +1,7 @@
 ﻿#include "Material.h"
 
-#include "../../Core/Utils/Utils.h"
 #include "../../Renderer/RenderTypes.h"
+#include "../ShaderProgram/PixelProgram.h"
 
 void Material::UpdateForwardState(ID3D11Device* dev)
 {
@@ -23,9 +23,7 @@ void Material::UpdateShadowState(ID3D11Device* dev)
     rs.depthFunc = D3D11_COMPARISON_LESS;
     rs.depthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
     rs.blendEnable = false;
-    rs.colorWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL; 
-    
-    
+    rs.colorWriteMask = D3D11_COLOR_WRITE_ENABLE_ALL;
     m_ShadowState.Create(dev, rs);
 }
 
@@ -33,66 +31,55 @@ void Material::Bind(ID3D11DeviceContext* ctx, PassType pass)
 {
     if (bDirtyState)
     {
-        ID3D11Device* device;
+        ID3D11Device* device = nullptr;
         ctx->GetDevice(&device);
         UpdateForwardState(device);
         UpdateShadowState(device);
         bDirtyState = false;
     }
-    
+
+    ID3D11Device* device = nullptr;
+    ctx->GetDevice(&device);
+
     if (pass == PassType::Shadow)
     {
-        if (bEnableShadow)
-        {
-            if (m_Shadow == nullptr)
-            {
-                ID3D11Device* device;
-                ctx->GetDevice(&device);
-                m_Shadow = std::make_shared<ShaderProgram>(device, vsPath_Shadow, nullptr);
-            }
-            if (m_Shadow)
-            {
-                ctx->IASetInputLayout(m_Shadow->GetIL());
-                ctx->VSSetShader(m_Shadow->GetVS(), nullptr, 0);
-                ctx->PSSetShader(nullptr, nullptr, 0); // 이전 PS 제거
-                m_ShadowState.Bind(ctx);
-            }
-        }
+        if (!bEnableShadow) return;
+
+        // VS/IL은 Pass가 담당
+        // Shadow는 PS/GS 끔
+        ctx->PSSetShader(nullptr, nullptr, 0);
+        ctx->GSSetShader(nullptr, nullptr, 0);
+        m_ShadowState.Bind(ctx);
         return;
     }
-    else if (pass == PassType::Forward)
+
+    if (pass == PassType::Forward || pass == PassType::CubeMap)
     {
-        if (m_Forward == nullptr)
+        if (!m_ForwardPS)
         {
-            ID3D11Device* device;
-            ctx->GetDevice(&device);
-            m_Forward = std::make_shared<ShaderProgram>(device, vsPath, psPath, gsPath);
+            m_ForwardPS = std::make_shared<PixelProgram>();
+            m_ForwardPS->Create(device, psPath, gsPath);
         }
-        if (m_Forward)
-        {
-            ctx->IASetInputLayout(m_Forward->GetIL());
-            ctx->VSSetShader(m_Forward->GetVS(), nullptr, 0);
-            ctx->PSSetShader(m_Forward->GetPS(), nullptr, 0);
-            ctx->GSSetShader(m_Forward->GetGS(), nullptr, 0);
-            m_ForwardState.Bind(ctx);
-        }
+
+        ctx->PSSetShader(m_ForwardPS->GetPS(), nullptr, 0);
+        ctx->GSSetShader(m_ForwardPS->GetGS(), nullptr, 0);
+        m_ForwardState.Bind(ctx);
+        return;
     }
-    else if (pass == PassType::Debug)
+
+    if (pass == PassType::Debug)
     {
-        if (m_Debug == nullptr)
+        if (!m_DebugPS)
         {
-            ID3D11Device* device;
-            ctx->GetDevice(&device);
             const wchar_t* DebugShaderPath = L"Shader\\DebugShader.hlsl";
-            m_Debug = std::make_shared<ShaderProgram>(device, DebugShaderPath, DebugShaderPath, DebugShaderPath);
+            m_DebugPS = std::make_shared<PixelProgram>();
+            // Debug는 PS/GS를 필요에 따라 사용 (여기선 동일 파일 사용)
+            m_DebugPS->Create(device, DebugShaderPath, DebugShaderPath);
         }
-        if (m_Debug)
-        {
-            ctx->IASetInputLayout(m_Forward->GetIL()); // Forward꺼 그대로 쓰기..
-            ctx->VSSetShader(m_Debug->GetVS(), nullptr, 0);
-            ctx->PSSetShader(m_Debug->GetPS(), nullptr, 0);
-            ctx->GSSetShader(m_Debug->GetGS(), nullptr, 0);
-            m_DebugState.Bind(ctx);
-        }
+
+        ctx->PSSetShader(m_DebugPS->GetPS(), nullptr, 0);
+        ctx->GSSetShader(m_DebugPS->GetGS(), nullptr, 0);
+        m_DebugState.Bind(ctx);
+        return;
     }
 }

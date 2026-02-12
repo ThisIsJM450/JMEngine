@@ -3,9 +3,10 @@
 #include <d3d11.h>
 #include <memory>
 #include <unordered_map>
+#include "../../Renderer/RenderData/GPUMesh/GPUMeshBase.h"
 
-struct MeshAsset;
-struct GPUMesh;
+class SceneProxyBase;
+class CpuMeshBase;
 
 /**
  * CPUData를 GPUData로 변환 및 GPU Data 관리하는 역할
@@ -13,8 +14,12 @@ struct GPUMesh;
 class MeshManager
 {
 public:
-    GPUMesh* GetOrCreate(ID3D11Device* dev, uint64_t meshId, const MeshAsset& cpu) const;
+    
+    GPUMeshBase* GetOrCreate(ID3D11Device* dev, SceneProxyBase* procxy) const;
 
 private:
-    mutable std::unordered_map<uint64_t, std::unique_ptr<GPUMesh>> m_Cache;
+    std::unique_ptr<GPUMeshBase> CreateGpuMeshByType(const CpuMeshBase* cpu) const;
+
+private:
+    mutable std::unordered_map<uint64_t, std::unique_ptr<GPUMeshBase>> m_Cache;
 };

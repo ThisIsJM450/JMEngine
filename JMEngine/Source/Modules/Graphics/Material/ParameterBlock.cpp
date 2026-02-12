@@ -43,6 +43,7 @@ void ParameterBlock::Bind(ID3D11Device* dev, ID3D11DeviceContext* ctx, uint32_t 
     ID3D11Buffer* cb = m_CBuffer.Get();
     ctx->VSSetConstantBuffers(materialCBRegister, 1, &cb);
     ctx->PSSetConstantBuffers(materialCBRegister, 1, &cb);
+    ctx->GSSetConstantBuffers(materialCBRegister, 1, &cb);
     
     ID3D11ShaderResourceView* srvs[kMaxTextures]{};
     for (uint32_t i = 0; i < kMaxTextures; ++i)
@@ -96,168 +97,96 @@ void ParameterBlock::UpdateCBIfDirty(ID3D11DeviceContext* ctx)
 void ParameterBlock::CreateTexture(ID3D11Device* dev, const std::string filename, Microsoft::WRL::ComPtr<ID3D11Texture2D>& texture,
     Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>& textureResourceView)
 {
+auto ToWString = [](const std::string& s) -> std::wstring
+    {
+        // 간단 변환(ASCII만 안전). 실제 서비스면 UTF-8 -> UTF-16 변환 권장.
+        return std::wstring(s.begin(), s.end());
+    };
+
+    const std::wstring wfilename = ToWString(filename);
+
+    // -----------------------
+    // EXR (HDR, Linear)
+    // -----------------------
     if (IsEXR(filename))
     {
         DirectX::ScratchImage image;
         DirectX::TexMetadata metadata;
 
-        std::wstring wfilename(filename.begin(), filename.end());
+        HRESULT hr = DirectX::LoadFromEXRFile(wfilename.c_str(), &metadata, image);
+        if (FAILED(hr)) { assert(false && "Failed to load EXR"); return; }
 
-        HRESULT hr = DirectX::LoadFromEXRFile(
+        Microsoft::WRL::ComPtr<ID3D11Resource> res;
+        hr = DirectX::CreateTexture(dev, image.GetImages(), image.GetImageCount(), metadata, res.GetAddressOf());
+        if (FAILED(hr)) { assert(false && "Failed to create EXR texture"); return; }
+
+        hr = DirectX::CreateShaderResourceView(dev, image.GetImages(), image.GetImageCount(), metadata, textureResourceView.GetAddressOf());
+        if (FAILED(hr)) { assert(false && "Failed to create EXR SRV"); return; }
+
+        hr = res.As(&texture);
+        if (FAILED(hr)) { assert(false && "EXR texture is not ID3D11Texture2D"); return; }
+
+        return;
+    }
+
+    // -----------------------
+    // DDS (2D / Cubemap / BC6H etc.)
+    // -----------------------
+    if (IsDDS(filename))
+    {
+        DirectX::ScratchImage image;
+        DirectX::TexMetadata metadata;
+
+        HRESULT hr = DirectX::LoadFromDDSFile(
             wfilename.c_str(),
+            DirectX::DDS_FLAGS_NONE,   // 필요 시 DDS_FLAGS_NO_16BPP, DDS_FLAGS_FORCE_RGB 등
             &metadata,
             image);
 
-        if (FAILED(hr))
-        {
-            assert(false && "Failed to load EXR");
-            return;
-        }
+        if (FAILED(hr)) { assert(false && "Failed to load DDS"); return; }
 
-        // DirectXTex는 Resource로 만들어줌
         Microsoft::WRL::ComPtr<ID3D11Resource> res;
+        hr = DirectX::CreateTexture(dev, image.GetImages(), image.GetImageCount(), metadata, res.GetAddressOf());
+        if (FAILED(hr)) { assert(false && "Failed to create DDS texture"); return; }
 
-        // 텍스처 생성 (metadata.format은 보통 R16G16B16A16_FLOAT)
-        hr = DirectX::CreateTexture(
-            dev,
-            image.GetImages(),
-            image.GetImageCount(),
-            metadata,
-            res.GetAddressOf());
+        // metadata 기반으로 SRV Dimension(TEXTURE2D / TEXTURECUBE 등) 알아서 맞춰줌
+        hr = DirectX::CreateShaderResourceView(dev, image.GetImages(), image.GetImageCount(), metadata, textureResourceView.GetAddressOf());
+        if (FAILED(hr)) { assert(false && "Failed to create DDS SRV"); return; }
 
-        if (FAILED(hr))
-        {
-            assert(false && "Failed to create EXR texture");
-            return;
-        }
-
-        // SRV 생성
-        hr = DirectX::CreateShaderResourceView(
-            dev,
-            image.GetImages(),
-            image.GetImageCount(),
-            metadata,
-            textureResourceView.GetAddressOf());
-
-        if (FAILED(hr))
-        {
-            assert(false && "Failed to create EXR SRV");
-            return;
-        }
-
-        // ID3D11Texture2D로 캐스팅해서 기존 인터페이스 유지
+        // 큐브맵도 ID3D11Texture2D (ArraySize=6)로 캐스팅 가능
         hr = res.As(&texture);
-        if (FAILED(hr))
-        {
-            assert(false && "EXR texture is not ID3D11Texture2D");
-            return;
-        }
+        if (FAILED(hr)) { assert(false && "DDS texture is not ID3D11Texture2D"); return; }
 
         return;
     }
-    
-    // ===============================
-    // DDS 경로 (GPU 압축 텍스처)
-    // ===============================
-    // if (IsDDS(filename))
-    // {
-    //     DirectX::ScratchImage image;
-    //     DirectX::TexMetadata metadata;
-    //
-    //     std::wstring wfilename(filename.begin(), filename.end());
-    //
-    //     HRESULT hr = DirectX::LoadFromDDSFile(
-    //         wfilename.c_str(),
-    //         DirectX::DDS_FLAGS_NONE,
-    //         &metadata,
-    //         image);
-    //
-    //     if (FAILED(hr))
-    //     {
-    //         assert(false && "Failed to load DDS");
-    //         return;
-    //     }
-    //
-    //     hr = DirectX::CreateTexture(
-    //         dev,
-    //         image.GetImages(),
-    //         image.GetImageCount(),
-    //         metadata,
-    //         reinterpret_cast<ID3D11Resource**>(texture.GetAddressOf()));
-    //
-    //     if (FAILED(hr))
-    //     {
-    //         assert(false && "Failed to create DDS texture");
-    //         return;
-    //     }
-    //
-    //     hr = DirectX::CreateShaderResourceView(
-    //         dev,
-    //         image.GetImages(),
-    //         image.GetImageCount(),
-    //         metadata,
-    //         textureResourceView.GetAddressOf());
-    //
-    //     if (FAILED(hr))
-    //     {
-    //         assert(false && "Failed to create DDS SRV");
-    //     }
-    //
-    //     return;
-    // }
 
-    // ===============================
-    // 일반 이미지 (stb_image)
-    // ===============================
+    // -----------------------
+    // 일반 이미지 (stb_image) - 주의: 이건 무조건 SRGB로 만들고 있음
+    // -----------------------
     int width, height, channels;
+    unsigned char* img = stbi_load(filename.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    if (!img) { assert(false && "Failed to load image"); return; }
 
-    unsigned char* img =
-        stbi_load(filename.c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    D3D11_TEXTURE2D_DESC desc = {};
+    desc.Width = width;
+    desc.Height = height;
+    desc.MipLevels = 1;
+    desc.ArraySize = 1;
+    desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB; // <- 알베도용이면 OK, 데이터/IBL이면 보통 NON_SRGB
+    desc.SampleDesc.Count = 1;
+    desc.Usage = D3D11_USAGE_IMMUTABLE;
+    desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
 
-    if (!img)
-    {
-        assert(false && "Failed to load image");
-        return;
-    }
+    D3D11_SUBRESOURCE_DATA init = {};
+    init.pSysMem = img;
+    init.SysMemPitch = width * 4;
 
-    // Create texture.
-    D3D11_TEXTURE2D_DESC txtDesc = {};
-    txtDesc.Width = width;
-    txtDesc.Height = height;
-    txtDesc.MipLevels = 1;
-    txtDesc.ArraySize = 1;
-    txtDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM_SRGB;
-    txtDesc.SampleDesc.Count = 1;
-    txtDesc.Usage = D3D11_USAGE_IMMUTABLE;
-    txtDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-    D3D11_SUBRESOURCE_DATA initData = {};
-    initData.pSysMem = img;
-    initData.SysMemPitch = width * 4;
-
-    HRESULT hr = dev->CreateTexture2D(
-        &txtDesc,
-        &initData,
-        texture.GetAddressOf());
-
+    HRESULT hr = dev->CreateTexture2D(&desc, &init, texture.GetAddressOf());
     stbi_image_free(img);
+    if (FAILED(hr)) { assert(false && "CreateTexture2D failed"); return; }
 
-    if (FAILED(hr))
-    {
-        assert(false && "CreateTexture2D failed");
-        return;
-    }
-
-    
-    hr = dev->CreateShaderResourceView(
-        texture.Get(),
-        nullptr,
-        textureResourceView.GetAddressOf());
-
-    if (FAILED(hr))
-    {
-        assert(false && "CreateShaderResourceView failed");
-    }
+    hr = dev->CreateShaderResourceView(texture.Get(), nullptr, textureResourceView.GetAddressOf());
+    if (FAILED(hr)) { assert(false && "CreateShaderResourceView failed"); return; }
 }
 
 bool ParameterBlock::IsEXR(const std::string& filename)
@@ -268,8 +197,8 @@ bool ParameterBlock::IsEXR(const std::string& filename)
     return ext == ".exr";
 }
 
-// bool ParameterBlock::IsDDS(const std::string& filename)
-// {
-//     std::filesystem::path p(filename);
-//     return p.extension() == ".dds" || p.extension() == ".DDS";
-// }
+bool ParameterBlock::IsDDS(const std::string& filename)
+{
+    std::filesystem::path p(filename);
+    return p.extension() == ".dds" || p.extension() == ".DDS";
+}

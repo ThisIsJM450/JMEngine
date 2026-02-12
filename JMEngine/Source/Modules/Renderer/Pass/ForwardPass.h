@@ -18,6 +18,4 @@ public:
         const std::vector<DirectionalLight>& dirLights,
         const std::vector<SpotLight>& SpotLights,
         const ShadowOutput& shadows);
-
-    //MaterialInstanceGPUManager materialInstanceGPUManager;
 };

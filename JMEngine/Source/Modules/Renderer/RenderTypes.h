@@ -8,6 +8,7 @@ enum class PassType : uint8_t
     Shadow = 0,
     Forward = 1,
     Debug = 2,
+    CubeMap = 3,
 };
 
 enum class LightType : uint8_t
@@ -38,7 +39,7 @@ struct SpotLight
     DirectX::XMFLOAT3 position = DirectX::XMFLOAT3(0.0f, 2.0f, 0.f);
     float range = 10.0f;
 
-    DirectX::XMFLOAT3 direction = DirectX::XMFLOAT3(0.0f, -1.0f, 0.f);
+    DirectX::XMFLOAT3 direction = DirectX::XMFLOAT3(0.0f, 0.0f, 0.f);
     float spotAngleRadians = DirectX::XMConvertToRadians(30.f);
 
     DirectX::XMFLOAT3 color = DirectX::XMFLOAT3(1.0f, 1.0f, 1.0f);
@@ -47,10 +48,9 @@ struct SpotLight
     int castShadow = 1;
     float ShadowBias = 0.001f;
     float normalBias = 0.f;
-    float _pad1 = 0.f;
+    float IsPoint = 0;
 };
+static_assert(sizeof(SpotLight) % 16 == 0, "CB alignment");
 
-struct RendererTypes
-{
-    
-};
+
+

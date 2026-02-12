@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "../Game/MeshData.h"
+#include "../Game/Skeletal/SkeletalMeshData.h"
 
 inline Microsoft::WRL::ComPtr<ID3DBlob> Compile(
     const wchar_t* relPathFromExe,
@@ -87,6 +88,8 @@ void ShaderProgram::Create(ID3D11Device* device, const wchar_t* vsPath, const wc
             { "NORMAL",   0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offsetof(Vertex, Normal), D3D11_INPUT_PER_VERTEX_DATA, 0 },
                 //TextureCoordinate는 2D이니 R32, G32
             { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT,    0, offsetof(Vertex, UV),     D3D11_INPUT_PER_VERTEX_DATA, 0 },
+                 //Tangent는 flaot4이니 A32까지
+            { "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT,    0, offsetof(Vertex, Tangent),     D3D11_INPUT_PER_VERTEX_DATA, 0 },
         };
 
         device->CreateInputLayout(layout, (UINT)_countof(layout),
@@ -103,4 +106,3 @@ void ShaderProgram::Create(ID3D11Device* device, const wchar_t* vsPath, const wc
     }
     Create(device, vsPath, psPath);
 }
-

@@ -3,58 +3,47 @@
 #include "../../Graphics/Material/MaterialInstance.h"
 #include "../../Renderer/SceneProxy/StaticMeshSceneProxy.h"
 
-void StaticMeshComponent::OnRegister()
+StaticMeshComponent::StaticMeshComponent()
+    : MeshComponent()
 {
-    World* world = GetWorld();
-    if (!world) return;
+    TypeName = std::string("StaticMeshComponent");
+}
 
-    world->GetScene().AddStaticMesh(this);
+void StaticMeshComponent::SetMesh(const std::shared_ptr<MeshAsset>& mesh)
+{
+    m_Mesh = mesh;
     MarkRenderStateDirty();
 }
 
-void StaticMeshComponent::OnUnregister()
+std::unique_ptr<SceneProxyBase> StaticMeshComponent::CreateSceneProxy()
 {
-    World* world = GetWorld();
-    if (!world) return;
-
-    world->GetScene().RemoveStaticMesh(this);
-}
-
-void StaticMeshComponent::SetMaterial(std::vector<std::shared_ptr<MaterialInstance>> mats)
-{
-    m_Materials = std::move(mats); 
-    MarkRenderStateDirty();
-}
-
-std::vector<MaterialInstance*> StaticMeshComponent::GetMaterialInstances() const
-{
-    std::vector<MaterialInstance*> RetVal;
-    for (std::shared_ptr<MaterialInstance> Mat : m_Materials)
-    {
-        if (Mat)
-        {
-            RetVal.push_back(Mat.get()); 
-        }
-    }
+    // Mesh가 있을 때만 프록시 생성
+    if (!GetMesh())
+        return nullptr;
     
-    return RetVal;
+    return std::unique_ptr<SceneProxyBase>(new StaticMeshSceneProxy());
 }
 
-void StaticMeshComponent::MarkRenderStateDirty()
+void StaticMeshComponent::FillProxyCommonData(SceneProxyBase* proxy)
 {
-    // 현재는 지금은 단일 스레드 최소 구현
-    // tODO: UE처럼 RenderThread에 커맨드로 넘기도록 수정
-    if (GetMesh())
+    // StaticMeshSceneProxy의 공통 필드 세팅
+    StaticMeshSceneProxy* p = static_cast<StaticMeshSceneProxy*>(proxy);
+    p->CastShadow = CastShadow;
+    p->ReceiveShadow = ReceiveShadow;
+    p->MeshID = meshID;
+    p->materialInstances = GetMaterialInstances();
+}
+
+void StaticMeshComponent::FillProxyMeshData(SceneProxyBase* proxy)
+{
+    // StaticMeshSceneProxy에 Mesh/Owner 세팅
+    if (!GetMesh())
     {
-        m_Proxy = std::make_unique<StaticMeshSceneProxy>();
-        m_Proxy->Mesh = GetMesh();
-        m_Proxy->CastShadow = CastShadow;
-        m_Proxy->ReceiveShadow = ReceiveShadow;
-        m_Proxy->WorldMatrix = GetWorldMatrix();
-        m_Proxy->Bounds = m_Mesh->GetBoundBox().ToWorldBound(m_Proxy->WorldMatrix);
-        m_Proxy->MeshID = meshID;
-        // m_Proxy->color = color;
-        //m_Proxy->materialInstance = GetMaterialInstance();
-        m_Proxy->materialInstances = GetMaterialInstances();
+        // 메시가 없으면 프록시 무효
+        return;
     }
+
+    StaticMeshSceneProxy* p = static_cast<StaticMeshSceneProxy*>(proxy);
+    p->Ownner = this;
+    p->Mesh = GetMesh();
 }

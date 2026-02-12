@@ -6,9 +6,12 @@
 class DirectionalLightComponent : public SceneComponent
 {
 public:
+    DirectionalLightComponent();
+    ~DirectionalLightComponent() override = default;
 
-    void OnRegister() override;
-    void OnUnregister() override;
+    virtual void OnRegister() override;
+    virtual void OnUnregister() override;
+    
     
     DirectionalLight GetLightData() const
     {

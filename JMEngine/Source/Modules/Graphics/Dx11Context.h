@@ -43,12 +43,17 @@ public:
     int GetWidth() const { return m_Width; }
     int GetHeight() const { return m_Height; }
     void BindBackbuffer();
+    void BindViewbuffer();
 
     // void DrawMeshForward(const GPUMesh& meshData, Material* material, const CBPerDraw& cb);
 
     Material* GetBasicMaterial() const {return m_BasicMaterial.get();}
     const std::shared_ptr<Material> GetSharedBasicMaterial() const { return m_BasicMaterial; }
     MaterialInstance* GetBasicMaterialInstance() const;  
+    std::shared_ptr<MaterialInstance> GetStoneBrickMaterialInstance() const;
+    std::shared_ptr<MaterialInstance> GetMetalGoldPaintMaterialInstance() const;
+    std::shared_ptr<MaterialInstance> GetGrassPatchyGroundMaterialInstance() const;
+    std::shared_ptr<MaterialInstance> GetWhiteMaterialInstance() const;
     
     //~ Start HDR
     void CreateHDRRTVAndDSV();
@@ -57,8 +62,9 @@ public:
     // ~ End HDR
     
     // Backbuffer
-    ID3D11RenderTargetView* GetBackbufferRTV() const { return m_RTV.Get(); }
-    ID3D11DepthStencilView* GetBackbufferDSV() const { return m_DSV.Get(); }
+    ID3D11RenderTargetView* GetViewBufferRTV() const { return m_RTV.Get(); }
+    ID3D11DepthStencilView* GetViewBufferDSV() const { return m_DSV.Get(); }
+    ID3D11ShaderResourceView* GetViewBufferSRV() const { return m_SRV.Get(); }
 
     // HDR Scene
     ID3D11RenderTargetView* GetHDRRTV() const { return m_HDRRTV.Get(); }
@@ -79,8 +85,13 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Device> m_Device;
     Microsoft::WRL::ComPtr<ID3D11DeviceContext> m_Ctx;
     Microsoft::WRL::ComPtr<IDXGISwapChain> m_SwapChain;
+    
+    Microsoft::WRL::ComPtr<ID3D11Texture2D>        m_Tex;
     Microsoft::WRL::ComPtr<ID3D11RenderTargetView> m_RTV;
     Microsoft::WRL::ComPtr<ID3D11DepthStencilView> m_DSV;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_SRV;
+    
+    Microsoft::WRL::ComPtr<ID3D11RenderTargetView> m_BackBufferRTV;
     // Microsoft::WRL::ComPtr<ID3D11RasterizerState> m_RS;
 
     // ShaderProgram m_BasicShader;
@@ -88,6 +99,10 @@ private:
 
     std::shared_ptr<Material> m_BasicMaterial;
     std::shared_ptr<MaterialInstance> m_BasicMaterialInstance;
+    std::shared_ptr<MaterialInstance> m_StoneBrickMaterialInstance;
+    std::shared_ptr<MaterialInstance> m_MetalGoldPaintMaterialInstance;
+    std::shared_ptr<MaterialInstance> m_GrassPatchyGroundMaterialInstance;
+    std::shared_ptr<MaterialInstance> m_WhiteMaterialInstance;
     
     // HDR Scene
     Microsoft::WRL::ComPtr<ID3D11Texture2D>          m_HDRTex;

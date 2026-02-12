@@ -72,10 +72,10 @@ void ToneMapPass::Execute(Dx11Context& gfx, ID3D11ShaderResourceView* sceneColor
     ID3D11DeviceContext* ctx = gfx.GetContext();
     if (!sceneColorHDR) return;
 
-    // 출력: 백버퍼
-    gfx.BindBackbuffer(); // RTV 바인딩
+    // 출력: Viewbuffer
+    gfx.BindViewbuffer(); // RTV 바인딩
 
-    SetViewport(ctx, (float)gfx.GetWidth(), (float)gfx.GetHeight());
+    //SetViewport(ctx, (float)gfx.GetWidth(), (float)gfx.GetHeight());
 
     // 파이프라인 상태
     ctx->RSSetState(m_rs.Get());
@@ -114,6 +114,8 @@ void ToneMapPass::Execute(Dx11Context& gfx, ID3D11ShaderResourceView* sceneColor
     // SRV unbind 
     ID3D11ShaderResourceView* nullSRV[1] = { nullptr };
     ctx->PSSetShaderResources(0, 1, nullSRV);
+    
+
 }
 
 void ToneMapPass::SetViewport(ID3D11DeviceContext* ctx, float w, float h)

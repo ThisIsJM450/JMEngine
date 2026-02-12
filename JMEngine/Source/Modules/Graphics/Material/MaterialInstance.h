@@ -18,13 +18,20 @@ public:
     void SetBaseColor(const DirectX::XMFLOAT4& c) { m_Params.SetBaseColor(c); }
     void SetRoughness(float r) { m_Params.SetRoughness(r); }
     void SetMetallic(float m)  { m_Params.SetMetallic(m); }
-
+    void SetEmissive(const DirectX::XMFLOAT3& e) { m_Params.SetEmissive(e); }
+    void SetUsePackedMetalRough(bool packMetalRough) { m_Params.SetUsePackedMetalRough(packMetalRough); }
+    void SetUseNormalMap(bool InUseNormalMap) { m_Params.SetUseNormalMap(InUseNormalMap); }
+    void SetUseGlossMap(bool InUseGlossMap) { m_Params.SetUseGlossMap(InUseGlossMap); }
+    void EnableCubeMap(bool bEnable) { m_Params.EnableCubeMap(bEnable); }
+    bool IsCubeMap() const { return m_Params.IsCubeMap(); }
+    
     void SetTexture(uint32_t slot, const std::string& TextureFileName) {  m_Params.SetTexture(slot, TextureFileName); }
     void SetTexture(uint32_t slot, ID3D11ShaderResourceView* srv) { m_Params.SetTexture(slot, srv); }
     void SetSampler(uint32_t slot, ID3D11SamplerState* samp) { m_Params.SetSampler(slot, samp); }
 
     // 그리기 직전에 호출
     void Bind(ID3D11Device* Dev, ID3D11DeviceContext* Context, PassType Pass) const;
+
 
 private:
     std::shared_ptr<Material> m_Base;

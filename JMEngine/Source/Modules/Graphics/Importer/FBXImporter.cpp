@@ -4,67 +4,19 @@
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
 
-#include <d3d11.h>
-#include <DirectXMath.h>
-#include <DirectXTK/WICTextureLoader.h>
-#include <wrl/client.h>
-#include <unordered_map>
-#include <vector>
-#include <string>
-#include <filesystem>
-
 #include "../Dx11Context.h"
-#include "../../Game/MeshData.h"
+#include "../../Game/MeshData.h"  
+#include "FbxImportUtils.h"
+#include "FbxMaterialBuilder.h"
 
-using Microsoft::WRL::ComPtr;
-using PerMatIndices = std::unordered_map<uint32_t, std::vector<uint32_t>>;
+#include <cmath>
+#include <iomanip>
+#include <iostream>
 
-static DirectX::XMFLOAT3 ToXM3(const aiVector3D& v) { return { v.x, v.y, v.z }; }
-static DirectX::XMFLOAT2 ToXM2(const aiVector3D& v) { return { v.x, v.y }; }
+#include "../../Game/Skeletal/SkeletalMeshData.h"
 
-static std::wstring Utf8ToWide(const std::string& s)
-{
-    if (s.empty()) return {};
-    int sz = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
-    std::wstring out(sz, 0);
-    MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), out.data(), sz);
-    return out;
-}
+using namespace FbxImportUtils;
 
-static std::wstring GetBaseDirW(const std::wstring& filePath)
-{
-    const size_t pos = filePath.find_last_of(L"/\\");
-    if (pos == std::wstring::npos) return L"";
-    return filePath.substr(0, pos + 1);
-}
-
-static bool IsAbsPathW(const std::wstring& p)
-{
-    if (p.empty()) return false;
-    if (p.find(L":") != std::wstring::npos) return true;
-    if (p.rfind(L"\\\\", 0) == 0) return true;
-    if (p[0] == L'/' || p[0] == L'\\') return true;
-    return false;
-}
-
-static std::wstring NormalizeTexPathFromAssimp(const aiString& texPath)
-{
-    // Assimp가 주는 경로는 UTF-8일 수 있음
-    std::string u8 = texPath.C_Str();
-    return Utf8ToWide(u8);
-}
-
-// aiMatrix4x4 -> (pos transform, normal transform용)
-// aiMatrix4x4는 row/col이 섞일 수 있으니, Assimp 곱셈 연산자 이용이 안전함.
-// pos: p' = global * p
-// normal: (inverse-transpose of upper3x3)
-static aiMatrix3x3 MakeNormalMatrix(const aiMatrix4x4& m)
-{
-    aiMatrix3x3 n(m);
-    n.Inverse();
-    n.Transpose();
-    return n;
-}
 
 static void AppendMeshTransformed_PerMaterial(
     const aiScene* scene,
@@ -72,8 +24,7 @@ static void AppendMeshTransformed_PerMaterial(
     const aiMatrix4x4& global,
     MeshAsset& outAsset,
     PerMatIndices& outPerMatIndices,
-    std::vector<uint8_t>& outUsedMaterials // size = scene->mNumMaterials, 0/1
-)
+    std::vector<uint8_t>& outUsedMaterials)
 {
     if (!mesh) return;
 
@@ -81,13 +32,13 @@ static void AppendMeshTransformed_PerMaterial(
 
     const bool hasNormals = mesh->HasNormals();
     const bool hasUV0 = mesh->HasTextureCoords(0);
-    const bool hasUV1 = mesh->HasTextureCoords(1); // (옵션) UV0 없을 때 UV1 사용
-
-    const int uvCh = hasUV0 ? 0 : (hasUV1 ? 1 : -1);
+    const bool hasUV1 = mesh->HasTextureCoords(1);
+    const int  uvCh = hasUV0 ? 0 : (hasUV1 ? 1 : -1);
 
     const uint32_t baseV = (uint32_t)outAsset.Vertices.size();
     outAsset.Vertices.reserve(outAsset.Vertices.size() + mesh->mNumVertices);
 
+    // PASS1: vertices
     for (unsigned i = 0; i < mesh->mNumVertices; ++i)
     {
         Vertex v{};
@@ -97,7 +48,7 @@ static void AppendMeshTransformed_PerMaterial(
         v.Pos = ToXM3(p);
 
         aiVector3D n = hasNormals ? mesh->mNormals[i] : aiVector3D(0, 1, 0);
-        n = normalMat * n;
+        //n = normalMat * n;
         n.Normalize();
         v.Normal = ToXM3(n);
 
@@ -111,15 +62,16 @@ static void AppendMeshTransformed_PerMaterial(
             v.UV = { 0, 0 };
         }
 
+        v.Tangent = { 1, 0, 0, 1 };
+
         outAsset.Vertices.push_back(v);
     }
 
-    // mesh의 material index
     const uint32_t matIndex = mesh->mMaterialIndex;
     if (matIndex < outUsedMaterials.size())
         outUsedMaterials[matIndex] = 1;
 
-    // Triangulate 했으니 face는 3개 인덱스
+    // PASS2: per-material indices
     auto& idxList = outPerMatIndices[matIndex];
     idxList.reserve(idxList.size() + mesh->mNumFaces * 3);
 
@@ -132,6 +84,107 @@ static void AppendMeshTransformed_PerMaterial(
         idxList.push_back(baseV + (uint32_t)face.mIndices[1]);
         idxList.push_back(baseV + (uint32_t)face.mIndices[2]);
     }
+
+    // PASS3: tangent
+    if (mesh->HasTangentsAndBitangents())
+    {
+        aiMatrix3x3 m3(global);
+        for (unsigned i = 0; i < mesh->mNumVertices; ++i)
+        {
+            aiVector3D t = mesh->mTangents[i];
+            t = m3 * t;
+            t.Normalize();
+            outAsset.Vertices[baseV + i].Tangent = { t.x, t.y, t.z, 1.f };
+        }
+        return;
+    }
+
+    if (uvCh < 0)
+    {
+        for (unsigned i = 0; i < mesh->mNumVertices; ++i)
+            outAsset.Vertices[baseV + i].Tangent = { 1,0,0,1 };
+        return;
+    }
+
+    std::vector<DirectX::XMFLOAT3> tanSum(mesh->mNumVertices, { 0,0,0 });
+    std::vector<DirectX::XMFLOAT3> bitanSum(mesh->mNumVertices, { 0,0,0 });
+
+    auto Add3 = [](DirectX::XMFLOAT3& a, const DirectX::XMFLOAT3& b)
+    {
+        a.x += b.x; a.y += b.y; a.z += b.z;
+    };
+
+    for (unsigned f = 0; f < mesh->mNumFaces; ++f)
+    {
+        const aiFace& face = mesh->mFaces[f];
+        if (face.mNumIndices != 3) continue;
+
+        const uint32_t i0 = face.mIndices[0];
+        const uint32_t i1 = face.mIndices[1];
+        const uint32_t i2 = face.mIndices[2];
+
+        const Vertex& v0 = outAsset.Vertices[baseV + i0];
+        const Vertex& v1 = outAsset.Vertices[baseV + i1];
+        const Vertex& v2 = outAsset.Vertices[baseV + i2];
+
+        const float x1 = v1.Pos.x - v0.Pos.x;
+        const float y1 = v1.Pos.y - v0.Pos.y;
+        const float z1 = v1.Pos.z - v0.Pos.z;
+
+        const float x2 = v2.Pos.x - v0.Pos.x;
+        const float y2 = v2.Pos.y - v0.Pos.y;
+        const float z2 = v2.Pos.z - v0.Pos.z;
+
+        const float s1 = v1.UV.x - v0.UV.x;
+        const float t1 = v1.UV.y - v0.UV.y;
+
+        const float s2 = v2.UV.x - v0.UV.x;
+        const float t2 = v2.UV.y - v0.UV.y;
+
+        const float denom = (s1 * t2 - s2 * t1);
+        if (fabs(denom) < 1e-8f) continue;
+
+        const float r = 1.0f / denom;
+
+        DirectX::XMFLOAT3 tangent{
+            (t2 * x1 - t1 * x2) * r,
+            (t2 * y1 - t1 * y2) * r,
+            (t2 * z1 - t1 * z2) * r
+        };
+
+        DirectX::XMFLOAT3 bitangent{
+            (s1 * x2 - s2 * x1) * r,
+            (s1 * y2 - s2 * y1) * r,
+            (s1 * z2 - s2 * z1) * r
+        };
+
+        Add3(tanSum[i0], tangent); Add3(tanSum[i1], tangent); Add3(tanSum[i2], tangent);
+        Add3(bitanSum[i0], bitangent); Add3(bitanSum[i1], bitangent); Add3(bitanSum[i2], bitangent);
+    }
+
+    for (unsigned i = 0; i < mesh->mNumVertices; ++i)
+    {
+        Vertex& v = outAsset.Vertices[baseV + i];
+
+        using namespace DirectX;
+        XMVECTOR N = XMLoadFloat3(&v.Normal);
+        XMVECTOR T = XMLoadFloat3(&tanSum[i]);
+        XMVECTOR B = XMLoadFloat3(&bitanSum[i]);
+
+        if (XMVector3LessOrEqual(XMVector3LengthSq(T), XMVectorReplicate(1e-12f)))
+        {
+            v.Tangent = { 1,0,0,1 };
+            continue;
+        }
+
+        T = XMVector3Normalize(T - N * XMVector3Dot(N, T));
+        float handed = (XMVectorGetX(XMVector3Dot(XMVector3Cross(N, T), B)) < 0.0f) ? -1.0f : 1.0f;
+
+        XMFLOAT3 t3;
+        XMStoreFloat3(&t3, T);
+
+        v.Tangent = { t3.x, t3.y, t3.z, handed };
+    }
 }
 
 static void TraverseAndBuild_PerMaterial(
@@ -140,8 +193,7 @@ static void TraverseAndBuild_PerMaterial(
     const aiMatrix4x4& parent,
     MeshAsset& outAsset,
     PerMatIndices& outPerMatIndices,
-    std::vector<uint8_t>& outUsedMaterials // size=scene->mNumMaterials
-)
+    std::vector<uint8_t>& outUsedMaterials)
 {
     aiMatrix4x4 global = parent * node->mTransformation;
 
@@ -155,267 +207,170 @@ static void TraverseAndBuild_PerMaterial(
     }
 
     for (unsigned ci = 0; ci < node->mNumChildren; ++ci)
+    {
         TraverseAndBuild_PerMaterial(scene, node->mChildren[ci], global, outAsset, outPerMatIndices, outUsedMaterials);
+    }
+        
 }
 
-// per-material indices -> 하나의 index buffer + sections 생성
-static void FinalizeIndexBufferAndSections(
+
+// ------------------------------------------------------------
+// Skeletal: per-material build (global bake 금지)
+// ------------------------------------------------------------
+
+static void BuildGlobalNode_Assimp(
+    const aiNode* n,
+    const aiMatrix4x4& parent,
+    std::unordered_map<std::string, aiMatrix4x4>& outGlobal)
+{
+    aiMatrix4x4 g = parent * n->mTransformation;
+    outGlobal[n->mName.C_Str()] = g;
+
+    for (unsigned i = 0; i < n->mNumChildren; ++i)
+        BuildGlobalNode_Assimp(n->mChildren[i], g, outGlobal);
+}
+
+
+
+static void AppendSkinnedMesh_PerMaterial_Rebuild(
     const aiScene* scene,
-    PerMatIndices& perMat,
-    const std::vector<uint8_t>& usedMaterials,
-    MeshAsset& outAsset
-)
-{
-    outAsset.Indices.clear();
-    outAsset.Sections.clear();
-
-    // materialIndex를 오름차순으로 안정적으로 처리
-    // (언리얼도 기본적으로 슬롯 순서 기준으로 섹션/드로우가 정렬됨)
-    for (uint32_t matIndex = 0; matIndex < (uint32_t)usedMaterials.size(); ++matIndex)
-    {
-        if (!usedMaterials[matIndex]) continue;
-
-        auto it = perMat.find(matIndex);
-        if (it == perMat.end() || it->second.empty()) continue;
-
-        MeshSection sec{};
-        sec.MaterialIndex = matIndex;
-        sec.StartIndex = (uint32_t)outAsset.Indices.size();
-        sec.IndexCount = (uint32_t)it->second.size();
-
-        outAsset.Indices.insert(outAsset.Indices.end(), it->second.begin(), it->second.end());
-        outAsset.Sections.push_back(sec);
-    }
-}
-
-static void Create1x1WhiteSRV(ID3D11Device* device, ComPtr<ID3D11ShaderResourceView>& outSRV)
-{
-    if (outSRV) return;
-
-    UINT white = 0xFFFFFFFF;
-    D3D11_TEXTURE2D_DESC td{};
-    td.Width = 1;
-    td.Height = 1;
-    td.MipLevels = 1;
-    td.ArraySize = 1;
-    td.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    td.SampleDesc.Count = 1;
-    td.Usage = D3D11_USAGE_IMMUTABLE;
-    td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-    D3D11_SUBRESOURCE_DATA sd{};
-    sd.pSysMem = &white;
-    sd.SysMemPitch = sizeof(UINT);
-
-    ComPtr<ID3D11Texture2D> tex;
-    if (SUCCEEDED(device->CreateTexture2D(&td, &sd, tex.GetAddressOf())))
-    {
-        D3D11_SHADER_RESOURCE_VIEW_DESC srvd{};
-        srvd.Format = td.Format;
-        srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-        srvd.Texture2D.MipLevels = 1;
-        srvd.Texture2D.MostDetailedMip = 0;
-        device->CreateShaderResourceView(tex.Get(), &srvd, outSRV.GetAddressOf());
-    }
-}
-
-// embedded texture (raw aiTexel) SRV 생성
-static ComPtr<ID3D11ShaderResourceView> CreateSRVFromEmbeddedRawBGRA8(
-    ID3D11Device* device, const aiTexture* at)
-{
-    ComPtr<ID3D11ShaderResourceView> srv;
-    if (!device || !at || at->mWidth == 0 || at->mHeight == 0) return srv;
-
-    D3D11_TEXTURE2D_DESC td{};
-    td.Width = at->mWidth;
-    td.Height = at->mHeight;
-    td.MipLevels = 1;
-    td.ArraySize = 1;
-    td.Format = DXGI_FORMAT_B8G8R8A8_UNORM; // 글과 동일
-    td.SampleDesc.Count = 1;
-    td.Usage = D3D11_USAGE_IMMUTABLE;
-    td.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-
-    D3D11_SUBRESOURCE_DATA sd{};
-    sd.pSysMem = at->pcData;
-    sd.SysMemPitch = at->mWidth * sizeof(aiTexel);
-
-    ComPtr<ID3D11Texture2D> tex;
-    if (FAILED(device->CreateTexture2D(&td, &sd, tex.GetAddressOf())))
-        return srv;
-
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvd{};
-    srvd.Format = td.Format;
-    srvd.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvd.Texture2D.MipLevels = 1;
-    srvd.Texture2D.MostDetailedMip = 0;
-
-    device->CreateShaderResourceView(tex.Get(), &srvd, srv.GetAddressOf());
-    return srv;
-}
-
-// 텍스처 로딩(embedded / *index / external relative/abs)
-// - 캐시 포함(파일 경로 기준)
-static ComPtr<ID3D11ShaderResourceView> LoadDiffuseSRV(
-    ID3D11Device* device,
-    const aiScene* scene,
-    aiMaterial* mat,
-    const std::wstring& baseDir,
-    std::unordered_map<std::wstring, ComPtr<ID3D11ShaderResourceView>>& fileCache,
-    ComPtr<ID3D11ShaderResourceView>& whiteSRV)
-{
-    Create1x1WhiteSRV(device, whiteSRV);
-    if (!scene || !mat) return whiteSRV;
-
-    aiString texPath;
-    if (mat->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) != AI_SUCCESS)
-        return whiteSRV;
-
-    std::string t8 = texPath.C_Str();
-    if (t8.empty())
-        return whiteSRV;
-
-    // 1) embedded (이름 또는 "*0" 형태도 GetEmbeddedTexture가 처리해줌)
-    if (const aiTexture* at = scene->GetEmbeddedTexture(t8.c_str()))
-    {
-        // 압축 이미지(PNG/JPG): mHeight == 0, mWidth == 압축 데이터 길이
-        if (at->mHeight == 0)
-        {
-            ComPtr<ID3D11Resource> res;
-            ID3D11ShaderResourceView* raw = nullptr;
-            if (SUCCEEDED(DirectX::CreateWICTextureFromMemory(
-                device,
-                reinterpret_cast<const uint8_t*>(at->pcData),
-                at->mWidth, // 데이터 길이
-                res.GetAddressOf(),
-                &raw)))
-            {
-                ComPtr<ID3D11ShaderResourceView> srv;
-                srv.Attach(raw);
-                return srv;
-            }
-        }
-        // RAW BGRA8
-        auto srv = CreateSRVFromEmbeddedRawBGRA8(device, at);
-        return srv ? srv : whiteSRV;
-    }
-
-    // 2) 구형 "*index" 접근
-    if (!t8.empty() && t8[0] == '*')
-    {
-        int idx = atoi(t8.c_str() + 1);
-        if (idx >= 0 && (unsigned)idx < scene->mNumTextures)
-        {
-            const aiTexture* at = scene->mTextures[idx];
-            if (at)
-            {
-                if (at->mHeight == 0)
-                {
-                    ComPtr<ID3D11Resource> res;
-                    ID3D11ShaderResourceView* raw = nullptr;
-                    if (SUCCEEDED(DirectX::CreateWICTextureFromMemory(device,
-                        (const uint8_t*)at->pcData, at->mWidth, res.GetAddressOf(), &raw)))
-                    {
-                        ComPtr<ID3D11ShaderResourceView> srv;
-                        srv.Attach(raw);
-                        return srv;
-                    }
-                    return whiteSRV;
-                }
-
-                auto srv = CreateSRVFromEmbeddedRawBGRA8(device, at);
-                return srv ? srv : whiteSRV;
-            }
-        }
-    }
-
-    // 3) 외부 파일(absolute / relative)
-    std::wstring wtex = NormalizeTexPathFromAssimp(texPath);
-    if (wtex.empty()) return whiteSRV;
-
-    std::wstring full = IsAbsPathW(wtex) ? wtex : (baseDir + wtex);
-
-    // 캐시
-    if (auto it = fileCache.find(full); it != fileCache.end() && it->second)
-        return it->second;
-
-    // 파일 존재 확인
-    if (!std::filesystem::exists(full))
-    {
-        return whiteSRV;
-    }
-
-    // DirectXTK로 로드
-    ComPtr<ID3D11Resource> res;
-    ID3D11ShaderResourceView* raw = nullptr;
-    if (SUCCEEDED(DirectX::CreateWICTextureFromFile(device, full.c_str(), res.GetAddressOf(), &raw)))
-    {
-        ComPtr<ID3D11ShaderResourceView> srv;
-        srv.Attach(raw);
-        fileCache[full] = srv;
-        return srv;
-    }
-    
-    // 실패 시 white.
-    return whiteSRV;
-}
-
-static void AppendMeshTransformed(const aiScene* scene, const aiMesh* mesh, const aiMatrix4x4& global, MeshAsset& outAsset)
+    const aiMesh* mesh,
+    const aiMatrix4x4& meshGlobal, // owner node global
+    SkeletalMeshAsset& outAsset,
+    PerMatIndices& outPerMatIndices,
+    std::vector<uint8_t>& outUsedMaterials)
 {
     if (!mesh) return;
 
-    const aiMatrix3x3 normalMat = MakeNormalMatrix(global);
-
     const bool hasNormals = mesh->HasNormals();
     const bool hasUV0 = mesh->HasTextureCoords(0);
+    const bool hasUV1 = mesh->HasTextureCoords(1);
+    const int  uvCh = hasUV0 ? 0 : (hasUV1 ? 1 : -1);
+
+    const aiMatrix3x3 normalMat = MakeNormalMatrix(meshGlobal);
+    const aiMatrix3x3 tangentMat(meshGlobal); // tangent는 3x3만 적용(스케일 포함이면 정규화)
 
     const uint32_t baseV = (uint32_t)outAsset.Vertices.size();
-    outAsset.Vertices.reserve(outAsset.Vertices.size() + mesh->mNumVertices);
+    outAsset.Vertices.resize(baseV + mesh->mNumVertices);
 
+    // ------------------------------------
+    // PASS1: vertices (meshGlobal bake)
+    // ------------------------------------
     for (unsigned i = 0; i < mesh->mNumVertices; ++i)
     {
-        Vertex v{};
+        SkinnedVertex v{};
 
+        // pos bake
         aiVector3D p = mesh->mVertices[i];
-        p = global * p;
-        v.Pos = ToXM3(p);
+        //p = meshGlobal * p;
+        v.Pos = { p.x, p.y, p.z };
 
+        // normal bake
         aiVector3D n = hasNormals ? mesh->mNormals[i] : aiVector3D(0, 1, 0);
-        n = normalMat * n;
+        //n = normalMat * n;
         n.Normalize();
-        v.Normal = ToXM3(n);
+        v.Normal = { n.x, n.y, n.z };
 
-        if (hasUV0)
+        // uv
+        if (uvCh >= 0)
         {
-            const aiVector3D uv = mesh->mTextureCoords[0][i];
-            v.UV = ToXM2(uv);
+            const aiVector3D uv = mesh->mTextureCoords[uvCh][i];
+            v.UV = { uv.x, uv.y };
+        }
+        else v.UV = { 0, 0 };
+
+        // tangent (있으면 bake)
+        if (mesh->HasTangentsAndBitangents())
+        {
+            aiVector3D t = mesh->mTangents[i];
+            //t = tangentMat * t;
+            t.Normalize();
+            v.Tangent = { t.x, t.y, t.z, 1.f };
         }
         else
         {
-            v.UV = { 0, 0 };
+            v.Tangent = { 1, 0, 0, 1 };
         }
 
-        outAsset.Vertices.push_back(v);
+        // bone data 초기값은 0으로 (SkinnedVertex 기본값이 0이면 생략 가능)
+        // v.BoneIndex[], v.BoneWeight[]는 ctor/default로 0 가정
+
+        outAsset.Vertices[baseV + i] = v;
     }
 
-    outAsset.Indices.reserve(outAsset.Indices.size() + mesh->mNumFaces * 3);
+    // ------------------------------------
+    // PASS2: bones / weights
+    //  - 여기서는 boneIndex는 "스켈레톤 전체에서의 인덱스"로 통일
+    // ------------------------------------
+    for (unsigned b = 0; b < mesh->mNumBones; ++b)
+    {
+        const aiBone* bone = mesh->mBones[b];
+        if (!bone) continue;
+
+        const std::string boneName = bone->mName.C_Str();
+
+        uint32_t boneIndex = 0;
+        auto it = outAsset.Skeleton.BoneNameToIndex.find(boneName);
+        if (it == outAsset.Skeleton.BoneNameToIndex.end())
+        {
+            boneIndex = (uint32_t)outAsset.Skeleton.Bones.size();
+            outAsset.Skeleton.BoneNameToIndex[boneName] = boneIndex;
+
+            BoneInfo bi{};
+            bi.Name   = boneName;
+            bi.OffsetA = bone->mOffsetMatrix;      // 원본
+            bi.Offset  = ToXM4(bone->mOffsetMatrix); // 기존 유지
+            outAsset.Skeleton.Bones.push_back(bi);
+        }
+        else
+        {
+            boneIndex = it->second;
+        }
+
+        for (unsigned w = 0; w < bone->mNumWeights; ++w)
+        {
+            const aiVertexWeight& vw = bone->mWeights[w];
+            const uint32_t vi = baseV + (uint32_t)vw.mVertexId;
+            if (vi >= outAsset.Vertices.size())
+            {
+                continue;
+            }
+
+            AddBoneData(outAsset.Vertices[vi], boneIndex, vw.mWeight);
+        }
+    }
+
+    // normalize weights
+    for (unsigned i = 0; i < mesh->mNumVertices; ++i)
+        NormalizeWeights(outAsset.Vertices[baseV + i]);
+
+    // ------------------------------------
+    // PASS3: indices per material
+    // ------------------------------------
+    const uint32_t matIndex = mesh->mMaterialIndex;
+    if (matIndex < outUsedMaterials.size())
+        outUsedMaterials[matIndex] = 1;
+
+    auto& idxList = outPerMatIndices[matIndex];
+    idxList.reserve(idxList.size() + mesh->mNumFaces * 3);
+
     for (unsigned f = 0; f < mesh->mNumFaces; ++f)
     {
         const aiFace& face = mesh->mFaces[f];
         if (face.mNumIndices != 3) continue;
 
-        outAsset.Indices.push_back(baseV + (uint32_t)face.mIndices[0]);
-        outAsset.Indices.push_back(baseV + (uint32_t)face.mIndices[1]);
-        outAsset.Indices.push_back(baseV + (uint32_t)face.mIndices[2]);
+        idxList.push_back(baseV + (uint32_t)face.mIndices[0]);
+        idxList.push_back(baseV + (uint32_t)face.mIndices[1]);
+        idxList.push_back(baseV + (uint32_t)face.mIndices[2]);
     }
 }
-
-static void TraverseAndBuild(
+static void TraverseAndBuild_Skinned_PerMaterial_Rebuild(
     const aiScene* scene,
     const aiNode* node,
     const aiMatrix4x4& parent,
-    MeshAsset& outAsset,
-    int& inOutFirstMaterialIndex)
+    SkeletalMeshAsset& outAsset,
+    PerMatIndices& outPerMatIndices,
+    std::vector<uint8_t>& outUsedMaterials)
 {
     aiMatrix4x4 global = parent * node->mTransformation;
 
@@ -425,56 +380,253 @@ static void TraverseAndBuild(
         const aiMesh* mesh = scene->mMeshes[meshIndex];
         if (!mesh || mesh->mNumVertices == 0 || mesh->mNumFaces == 0) continue;
 
-        if (inOutFirstMaterialIndex < 0)
-            inOutFirstMaterialIndex = (int)mesh->mMaterialIndex;
-
-        AppendMeshTransformed(scene, mesh, global, outAsset);
+        // meshGlobal = 이 node의 global
+        AppendSkinnedMesh_PerMaterial_Rebuild(scene, mesh, global, outAsset, outPerMatIndices, outUsedMaterials);
     }
 
     for (unsigned ci = 0; ci < node->mNumChildren; ++ci)
-        TraverseAndBuild(scene, node->mChildren[ci], global, outAsset, inOutFirstMaterialIndex);
+        TraverseAndBuild_Skinned_PerMaterial_Rebuild(scene, node->mChildren[ci], global, outAsset, outPerMatIndices, outUsedMaterials);
 }
 
-// 가장 큰(mesh faces) 하나만 고르는 경우를 지원하려면 node 탐색이 필요
-static const aiNode* FindNodeForMesh(const aiNode* node, unsigned meshIndex)
+static void BuildBindPoseBonePalette_Rebuild(
+    const aiScene* scene,
+    SkeletalMeshAsset& sk)
 {
-    for (unsigned i = 0; i < node->mNumMeshes; ++i)
-        if (node->mMeshes[i] == meshIndex) return node;
+    // 1) global node map (assimp)
+    std::unordered_map<std::string, aiMatrix4x4> globalNodeA;
+    globalNodeA.reserve(2048);
+    BuildGlobalNode_Assimp(scene->mRootNode, aiMatrix4x4(), globalNodeA);
 
-    for (unsigned c = 0; c < node->mNumChildren; ++c)
-        if (const aiNode* found = FindNodeForMesh(node->mChildren[c], meshIndex))
+    // 2) invRoot (assimp inverse)
+    aiMatrix4x4 invRootA = scene->mRootNode->mTransformation;
+    invRootA.Inverse();
+
+    // 3) palette
+    sk.BonePalette.resize(sk.Skeleton.Bones.size());
+
+    for (size_t i = 0; i < sk.Skeleton.Bones.size(); ++i)
+    {
+        const BoneInfo& bi = sk.Skeleton.Bones[i];
+
+        auto it = globalNodeA.find(bi.Name);
+        if (it == globalNodeA.end())
+        {
+            continue;
+        }
+
+        const aiMatrix4x4& nodeGA = it->second;
+        const aiMatrix4x4& offsetA = bi.OffsetA;
+
+        aiMatrix4x4 finalA = invRootA * nodeGA * offsetA;
+
+        // 마지막에만 변환
+        sk.BonePalette[i] = ToXM4(finalA);
+    }
+}
+
+static const aiNode* FindNodeByNameRecursive(const aiNode* node, const std::string& name)
+{
+    if (!node) return nullptr;
+    if (name == node->mName.C_Str()) return node;
+
+    for (unsigned i = 0; i < node->mNumChildren; ++i)
+    {
+        if (const aiNode* found = FindNodeByNameRecursive(node->mChildren[i], name))
             return found;
-
+    }
     return nullptr;
 }
 
-static aiMatrix4x4 GetGlobalTransform(const aiNode* node)
+static std::string NormalizeBoneName(std::string s)
 {
-    aiMatrix4x4 m; // identity
-    const aiNode* cur = node;
-    while (cur)
-    {
-        m = cur->mTransformation * m;
-        cur = cur->mParent;
-    }
-    return m;
+    const char* pfx = "mixamorig:";
+    if (s.rfind(pfx, 0) == 0) s = s.substr(strlen(pfx));
+    auto bar = s.find('|');
+    if (bar != std::string::npos) s = s.substr(bar + 1);
+    return s;
 }
 
-static int ChooseBestMeshIndex(const aiScene* scene)
+static void BuildRefLocalPoseFromScene(
+    const aiScene* scene,
+    Skeleton& skel,
+    bool bUseNormalizeName = false)
 {
-    int best = -1;
-    unsigned bestFaces = 0;
-    for (unsigned i = 0; i < scene->mNumMeshes; ++i)
+    using namespace DirectX;
+
+    const size_t boneCount = skel.Bones.size();
+    skel.RefLocalPose.resize(boneCount);
+
+    // 1) 기본은 Identity
+    for (size_t i = 0; i < boneCount; ++i)
+        XMStoreFloat4x4(&skel.RefLocalPose[i], XMMatrixIdentity());
+
+    if (!scene || !scene->mRootNode) return;
+
+    // 2) 각 BoneInfo.Name에 대응하는 aiNode의 local transform을 넣는다
+    for (size_t i = 0; i < boneCount; ++i)
     {
-        const aiMesh* m = scene->mMeshes[i];
-        if (!m || m->mNumVertices == 0 || m->mNumFaces == 0) continue;
-        if (m->mNumFaces > bestFaces)
+        std::string want = skel.Bones[i].Name;
+        if (bUseNormalizeName)
+            want = NormalizeBoneName(want);
+
+        // 노드 이름도 normalize해서 비교하려면 전체 트리를 순회하며 비교해야 해서
+        // 여기서는 "스켈레톤이 저장한 이름과 노드 이름이 동일"하다는 가정으로 Find.
+        // (Mixamo prefix 문제가 있으면 아래 주석 처리된 방식으로 바꾸는게 낫다)
+        const aiNode* node = FindNodeByNameRecursive(scene->mRootNode, want);
+
+        if (!node)
         {
-            bestFaces = m->mNumFaces;
-            best = (int)i;
+            continue;
         }
+
+        XMFLOAT4X4 localF = ToXM4(node->mTransformation); 
+        skel.RefLocalPose[i] = localF;
     }
-    return best;
+}
+
+static int32_t BuildNodeTree_Assimp_Recursive(
+    const aiNode* n,
+    int32_t parentIdx,
+    Skeleton& skel)
+{
+    if (!n) return -1;
+
+    // (A) 노드 하나 추가
+    const int32_t myIdx = (int32_t)skel.Nodes.size();
+    skel.Nodes.emplace_back();
+
+    NodeInfo& node = skel.Nodes.back();
+    node.Name = n->mName.C_Str();
+    node.Parent = parentIdx;
+
+    // LOCAL 저장 (글로벌 계산 X)
+    {
+        const aiMatrix4x4& m = n->mTransformation;
+        node.RefLocal._11 = m.a1; node.RefLocal._12 = m.a2; node.RefLocal._13 = m.a3; node.RefLocal._14 = m.a4;
+        node.RefLocal._21 = m.b1; node.RefLocal._22 = m.b2; node.RefLocal._23 = m.b3; node.RefLocal._24 = m.b4;
+        node.RefLocal._31 = m.c1; node.RefLocal._32 = m.c2; node.RefLocal._33 = m.c3; node.RefLocal._34 = m.c4;
+        node.RefLocal._41 = m.d1; node.RefLocal._42 = m.d2; node.RefLocal._43 = m.d3; node.RefLocal._44 = m.d4;
+    }
+
+    node.Children.clear();
+    node.Children.reserve(n->mNumChildren);
+
+    // (B) 이름->인덱스 등록
+    skel.NodeNameToIndex[node.Name] = myIdx;
+
+    // (C) 자식 재귀
+    for (uint32_t i = 0; i < n->mNumChildren; ++i)
+    {
+        const int32_t childIdx = BuildNodeTree_Assimp_Recursive(n->mChildren[i], myIdx, skel);
+        if (childIdx >= 0)
+            skel.Nodes[myIdx].Children.push_back(childIdx);
+    }
+
+    return myIdx;
+}
+
+static void BuildNodeTreeAndBoneMapping_Assimp(
+    const aiScene* scene,
+    Skeleton& skel)
+{
+    if (!scene || !scene->mRootNode)
+        return;
+
+    // 노드 정보 싹 비우고 다시 채움
+    skel.Nodes.clear();
+    skel.NodeNameToIndex.clear();
+    skel.BoneToNode.clear();
+
+    skel.Nodes.reserve(2048);
+    skel.NodeNameToIndex.reserve(2048);
+
+    // ✅ 노드 트리 정보 채우기 (LOCAL만 저장)
+    BuildNodeTree_Assimp_Recursive(scene->mRootNode, -1, skel);
+
+    // ✅ bone -> node 매핑 (bone name == node name 가정)
+    skel.BoneToNode.assign(skel.Bones.size(), -1);
+
+    for (int32_t bi = 0; bi < (int32_t)skel.Bones.size(); ++bi)
+    {
+        const std::string& boneName = skel.Bones[bi].Name; // BoneInfo에 Name 있어야 함
+        auto it = skel.NodeNameToIndex.find(boneName);
+        if (it != skel.NodeNameToIndex.end())
+            skel.BoneToNode[bi] = it->second;
+    }
+
+    // (선택) 바로 눈으로 확인할 수 있게 최소 로그
+    std::cout << "[NodeBuild] Nodes=" << skel.Nodes.size()
+              << " NodeMap=" << skel.NodeNameToIndex.size()
+              << " Bones=" << skel.Bones.size()
+              << " BoneToNode=" << skel.BoneToNode.size() << "\n";
+}
+
+
+// ------------------------------------------------------------
+// FbxImporter methods
+// ------------------------------------------------------------
+
+bool FbxImporter::BuildStatic(
+    const aiScene* scene,
+    const ImportOptions& opt,
+    std::shared_ptr<MeshAsset>& outMesh,
+    std::vector<uint8_t>& outUsedMaterials)
+{
+    (void)opt;
+
+    auto meshAsset = std::make_shared<MeshAsset>();
+    meshAsset->Stride = sizeof(Vertex);
+
+    PerMatIndices perMat;
+    outUsedMaterials.assign(scene->mNumMaterials, 0);
+
+    TraverseAndBuild_PerMaterial(scene, scene->mRootNode, aiMatrix4x4(), *meshAsset, perMat, outUsedMaterials);
+    FbxImportUtils::FinalizeIndexBufferAndSections(perMat, outUsedMaterials, *meshAsset);
+
+    if (meshAsset->Vertices.empty() || meshAsset->Indices.empty() || meshAsset->Sections.empty())
+        return false;
+
+    outMesh = std::move(meshAsset);
+    return true;
+}
+
+
+bool FbxImporter::BuildSkeletal(
+    const aiScene* scene,
+    const ImportOptions& opt,
+    std::shared_ptr<SkeletalMeshAsset>& outMesh,
+    std::vector<uint8_t>& outUsedMaterials)
+{
+    (void)opt;
+
+    auto sk = std::make_shared<SkeletalMeshAsset>();
+    PerMatIndices perMat;
+    outUsedMaterials.assign(scene->mNumMaterials, 0);
+
+    // 스킨 트래버스도 static처럼 global 누적해서 bake
+    TraverseAndBuild_Skinned_PerMaterial_Rebuild(scene, scene->mRootNode, aiMatrix4x4(), *sk, perMat, outUsedMaterials);
+
+    FbxImportUtils::FinalizeIndexBufferAndSections(perMat, outUsedMaterials, *sk);
+
+    if (sk->Vertices.empty() || sk->Indices.empty() || sk->Sections.empty())
+        return false;
+
+    // 부모관계 구성
+    BuildBoneParentsFromScene(scene, sk->Skeleton);
+
+    // bind pose palette 생성
+    BuildBindPoseBonePalette_Rebuild(scene, *sk);
+    
+    BuildNodeTreeAndBoneMapping_Assimp(scene, sk->Skeleton);
+    
+    // 기본 포즈 구성
+    BuildRefLocalPoseFromScene(scene, sk->Skeleton, false);
+    aiMatrix4x4 I = scene->mRootNode->mTransformation;
+    I.Inverse();
+    sk->Skeleton.GlobalInverse = ToXM4(I); 
+
+    outMesh = std::move(sk);
+    return true;
 }
 
 bool FbxImporter::ImportFBX(const std::string& path, const ImportOptions& opt, ImportResult& out)
@@ -495,111 +647,46 @@ bool FbxImporter::ImportFBX(const std::string& path, const ImportOptions& opt, I
     if (opt.bConvertToLeftHanded)      flags |= aiProcess_ConvertToLeftHanded;
 
     const aiScene* scene = importer.ReadFile(path, flags);
-    if (!scene || !scene->HasMeshes() || !scene->mRootNode)
+    if (!scene)
+    {
+        OutputDebugStringA(importer.GetErrorString());
+        OutputDebugStringA("\n");
         return false;
+    }
+    if (!scene->HasMeshes() || !scene->mRootNode)
+    {
+        OutputDebugStringA("Assimp loaded scene but no meshes/root.\n");
+        return false;
+    }
 
     ID3D11Device* device = Dx11Context::Get().GetDevice();
     if (!device) return false;
 
-    const std::wstring pathW = Utf8ToWide(path);
-    const std::wstring baseDir = GetBaseDirW(pathW);
-
-    // 1) 메시 머지 + per-material indices 수집
-    auto meshAsset = std::make_shared<MeshAsset>();
-    meshAsset->Stride = sizeof(Vertex);
-
-    PerMatIndices perMat;
+    const std::wstring baseDir = GetBaseDirW(Utf8ToWide(path));
     std::vector<uint8_t> usedMaterials(scene->mNumMaterials, 0);
 
-    // 여기서는 “전부 merge” 버전 (opt.bMergeAllMeshes가 true일 때)
-    // (best mesh only도 원하면 별도 처리 가능)
-    TraverseAndBuild_PerMaterial(scene, scene->mRootNode, aiMatrix4x4(), *meshAsset, perMat, usedMaterials);
+    const bool bSkeletal = SceneHasSkinnedMesh(scene);
 
-    // 2) indices+sections finalize
-    FinalizeIndexBufferAndSections(scene, perMat, usedMaterials, *meshAsset);
-
-    if (meshAsset->Vertices.empty() || meshAsset->Indices.empty() || meshAsset->Sections.empty())
-        return false;
-
-    // 3) matIndex별로 Materials 생성
-    auto materials = BuildMaterialsByMatIndex(device, scene, baseDir, usedMaterials);
-
-    out.Mesh = std::move(meshAsset);
-    out.Materials = std::move(materials);
-    return true;
-}
-
-std::shared_ptr<MeshAsset> FbxImporter::BuildMeshAssetFromScene(const aiScene* scene, const ImportOptions& opt, int& outPickedMaterialIndex)
-{
-    outPickedMaterialIndex = -1;
-
-    auto meshAsset = std::make_shared<MeshAsset>();
-    meshAsset->Stride = sizeof(Vertex);
-
-    if (opt.bMergeAllMeshes)
+    
+    if (bSkeletal)
     {
-        // node traverse해서 global transform 적용 + 전부 merge
-        TraverseAndBuild(scene, scene->mRootNode, aiMatrix4x4(), *meshAsset, outPickedMaterialIndex);
+        std::shared_ptr<SkeletalMeshAsset> sk;
+        if (!BuildSkeletal(scene, opt, sk, usedMaterials))
+            return false;
+
+        out.Type = EImportedMeshType::Skeletal;
+        out.SkeletalMesh = std::move(sk);
     }
     else
     {
-        // 큰 mesh 하나만 선택
-        const int bestIdx = ChooseBestMeshIndex(scene);
-        if (bestIdx < 0) return nullptr;
+        std::shared_ptr<MeshAsset> st;
+        if (!BuildStatic(scene, opt, st, usedMaterials))
+            return false;
 
-        const aiMesh* mesh = scene->mMeshes[bestIdx];
-        if (!mesh || mesh->mNumVertices == 0 || mesh->mNumFaces == 0) return nullptr;
-
-        const aiNode* node = FindNodeForMesh(scene->mRootNode, (unsigned)bestIdx);
-        aiMatrix4x4 global = node ? GetGlobalTransform(node) : aiMatrix4x4();
-
-        outPickedMaterialIndex = (int)mesh->mMaterialIndex;
-        AppendMeshTransformed(scene, mesh, global, *meshAsset);
+        out.Type = EImportedMeshType::Static;
+        out.StaticMesh = std::move(st);
     }
 
-    return meshAsset;
-}
-
-std::vector<std::shared_ptr<MaterialInstance>> FbxImporter::BuildMaterialsByMatIndex(ID3D11Device* device,const aiScene* scene, const std::wstring& baseDir, const std::vector<uint8_t>& usedMaterials
-)
-{
-    std::vector<std::shared_ptr<MaterialInstance>> out;
-    out.resize(scene->mNumMaterials);
-
-    auto baseMat = Dx11Context::Get().GetSharedBasicMaterial();
-    if (!baseMat) return out;
-
-    std::unordered_map<std::wstring, Microsoft::WRL::ComPtr<ID3D11ShaderResourceView>> texCache;
-    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> whiteSRV;
-    Create1x1WhiteSRV(device, whiteSRV);
-
-    for (uint32_t mi = 0; mi < scene->mNumMaterials; ++mi)
-    {
-        if (!usedMaterials[mi]) continue;
-
-        aiMaterial* mat = scene->mMaterials[mi];
-        if (!mat) continue;
-
-        auto inst = std::make_shared<MaterialInstance>(baseMat);
-
-        // diffuse/basecolor color
-        aiColor4D diffuse(1, 1, 1, 1);
-        if (AI_SUCCESS == aiGetMaterialColor(mat, AI_MATKEY_COLOR_DIFFUSE, &diffuse))
-        {
-            inst->SetBaseColor({ diffuse.r, diffuse.g, diffuse.b, diffuse.a });
-        }
-
-        // (nonPBR이면 shininess -> roughness 근사도 가능)
-        // float shininess = 0.f;
-        // if (AI_SUCCESS == aiGetMaterialFloat(mat, AI_MATKEY_SHININESS, &shininess))
-        //     inst->SetRoughness(std::clamp(std::sqrt(2.f / (shininess + 2.f)), 0.02f, 1.f));
-
-        // diffuse/basecolor texture slot0
-        auto srv = LoadDiffuseSRV(device, scene, mat, baseDir, texCache, whiteSRV);
-        inst->SetTexture(0, srv.Get());
-
-        out[mi] = std::move(inst);
-    }
-
-    return out;
+    out.Materials = FbxMaterialBuilder::BuildMaterialsByMatIndex(device, scene, baseDir, usedMaterials);
+    return true;
 }

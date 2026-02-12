@@ -9,6 +9,7 @@
 #include "Pass/ShadowPass.h"
 #include "Pass/ForwardPass.h"
 #include "../Scene/Scene.h"
+#include "Pass/CubeMapPass.h"
 #include "Pass/DebugPass.h"
 #include "Pass/ToneMapPass.h"
 
@@ -23,8 +24,10 @@ public:
     ~Renderer() {}
     
      SceneView BuildSceneView(Dx11Context& gfx, const Scene& scene);
+    void SetMainViewport(ID3D11DeviceContext* ctx, int w, int h);
 
     void Render(Dx11Context& gfx, const Scene& scene);
+    
     const ShadowOutput& GetShadowOutput() { return m_ShadowOut; }
 
 private:
@@ -38,6 +41,7 @@ private:
     ShadowPass m_ShadowPass;
     ForwardPass m_ForwardPass;
     ToneMapPass m_ToneMapPass;
+    CubeMapPass m_CubeMapPass;
     
     DebugPass m_DebugPass;
 

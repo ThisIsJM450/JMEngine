@@ -4,33 +4,28 @@
 #include "../FrameResources.h"
 #include "../../Graphics/Dx11Context.h"
 #include "../../Graphics/Material/MaterialInstance.h"
+#include "../../Graphics/ShaderProgram/PassVertexPrograms.h"
 #include <DirectXMath.h>
+
+#include "../RenderData/GPUMesh/GPUMeshSkeletal.h"
 
 using namespace DirectX;
 
-static void SetMainViewport(ID3D11DeviceContext* ctx, int w, int h)
-{
-    D3D11_VIEWPORT vp{};
-    vp.Width = (float)w;
-    vp.Height = (float)h;
-    vp.MinDepth = 0.0f;
-    vp.MaxDepth = 1.0f;
-    ctx->RSSetViewports(1, &vp);
-}
+static PassVertexPrograms g_ForwardVP;
 
-void ForwardPass::Execute(
-    Dx11Context& gfx,
-    FrameResources& fr,
-    const SceneView& view, const RenderQueue& queue,
-    const std::vector<DirectionalLight>& dirLights, const std::vector<SpotLight>& SpotLights,
-    const ShadowOutput& shadows)
+void ForwardPass::Execute(Dx11Context& gfx, FrameResources& fr, const SceneView& view, const RenderQueue& queue, const std::vector<DirectionalLight>& dirLights, const std::vector<SpotLight>& SpotLights, const ShadowOutput& shadows)
 {
-    ID3D11DeviceContext* context = gfx.GetContext();
+ID3D11DeviceContext* context = gfx.GetContext();
+
+    g_ForwardVP.Ensure(gfx.GetDevice(),
+       L"Shader\\ForwardLit.hlsl",
+       L"Shader\\SkinnedVS.hlsl"
+    );
     
-    SetMainViewport(context, gfx.GetWidth(), gfx.GetHeight());
 
-    // Frame/Light/Shadow CB 업데이트
     CBFrame f{};
+    XMStoreFloat4x4(&f.view, XMMatrixTranspose(view.view));
+    XMStoreFloat4x4(&f.Projection, XMMatrixTranspose(view.proj));
     XMStoreFloat4x4(&f.viewProjection, XMMatrixTranspose(view.viewProj));
     f.cameraPosition = view.cameraPosition;
     f.screenSize = { (float)view.width, (float)view.height };
@@ -39,41 +34,21 @@ void ForwardPass::Execute(
     CBLight light{};
     light.dirCount = (int)dirLights.size();
     light.spotCount = (int)SpotLights.size();
-    for (int i = 0; i < light.dirCount && i < kMaxDirLights; ++i)
-    {
-        light.directionalLight[i] = dirLights[i];
-    }
-    for (int i = 0; i < light.spotCount && i < kMaxSpotLights; ++i)
-    {
-        light.SpotLight[i] = SpotLights[i];
-    }
+    for (int i = 0; i < light.dirCount && i < kMaxDirLights; ++i) light.directionalLight[i] = dirLights[i];
+    for (int i = 0; i < light.spotCount && i < kMaxSpotLights; ++i) light.SpotLight[i] = SpotLights[i];
     fr.UpdateLight(context, light);
 
-    // Shadow SRV 바인딩 (예: t0~)
-    // Directional: t0.., Spot: tN..
     std::vector<ID3D11ShaderResourceView*> srvs;
     srvs.reserve(shadows.directionalMaps.size() + shadows.spotMaps.size());
-    for (auto& m : shadows.directionalMaps)
-    {
-        srvs.push_back(m.GetSRV());
-    }
-    for (auto& m : shadows.spotMaps)
-    {
-        srvs.push_back(m.GetSRV());
-    }
+    for (auto& m : shadows.directionalMaps) srvs.push_back(m.GetSRV());
+    for (auto& m : shadows.spotMaps) srvs.push_back(m.GetSRV());
 
     if (!srvs.empty())
-    {
-        //ParameterBlock::kMaxTextures 이후에 연결
         context->PSSetShaderResources(ParameterBlock::kMaxTextures, (UINT)srvs.size(), srvs.data());
-    }
 
     for (const RenderItem& it : queue.opaque)
     {
-        if (!it.mesh)
-        {
-            continue;
-        }
+        if (!it.mesh) continue;
 
         ID3D11Buffer* vb = it.mesh->VB.Get();
         context->IASetVertexBuffers(0, 1, &vb, &it.mesh->Stride, &it.mesh->Offset);
@@ -83,32 +58,35 @@ void ForwardPass::Execute(
         CBObject obj{};
         XMStoreFloat4x4(&obj.world, XMMatrixTranspose(it.world));
         XMStoreFloat4x4(&obj.WVP, XMMatrixTranspose(it.world * view.viewProj));
-        //obj.Color = it.color;
         fr.UpdateObject(context, obj);
         
-        // Section 마다 나눠서 Draw 요청
+
+        // VS/IL (Material.Bind 전에)
+        g_ForwardVP.Bind(context, it.bSkinned);
+        if (it.bSkinned && it.mesh)
+        {
+            if (GPUMeshSkeletal* Sk = static_cast<GPUMeshSkeletal*>(it.mesh))
+            {
+                if (Sk->BonePalette.empty() == false)
+                {
+                    fr.UpdateBones(context, &Sk->BonePalette[0], Sk->BonePalette.size());
+                }
+            }
+        }
+
         for (const GPUMeshSection& sec : it.mesh->Sections)
         {
             const uint32_t slot = sec.MaterialIndex;
 
-            MaterialInstance* mi;
-            if (slot < it.materials.size() && it.materials[slot])
-            {
-                mi = it.materials[slot];
-            }
-            else
-            {
-                mi = gfx.GetBasicMaterialInstance();
-            }
+            MaterialInstance* mi = nullptr;
+            if (slot < it.materials.size() && it.materials[slot]) mi = it.materials[slot];
+            else mi = gfx.GetBasicMaterialInstance();
 
             mi->Bind(gfx.GetDevice(), context, PassType::Forward);
-
             context->DrawIndexed(sec.IndexCount, sec.StartIndex, 0);
         }
-        
     }
 
-    // SRV 해제 (다음 프레임/다른 패스에서 DSV로 쓸 때 충돌 방지)
     if (!srvs.empty())
     {
         std::vector<ID3D11ShaderResourceView*> nulls(srvs.size(), nullptr);

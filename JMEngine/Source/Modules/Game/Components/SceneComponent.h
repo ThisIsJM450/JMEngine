@@ -7,6 +7,12 @@
 class SceneComponent : public ActorComponent
 {
 public:
+    
+    SceneComponent() 
+    {
+        TypeName = std::string("ActorComponent");
+    }
+    
     void AttachTo(SceneComponent* parent)
     {
         if (m_Parent == parent) return;
@@ -20,11 +26,6 @@ public:
 
     DirectX::XMMATRIX GetWorldMatrix() const
     {
-        // if (!m_Dirty)
-        // {
-        //     return m_CachedWorld;
-        // }
-
         using namespace DirectX;
         XMMATRIX local = m_Relative.ToMatrix();
         if (m_Parent)

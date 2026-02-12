@@ -6,6 +6,10 @@
 class SpotLightComponent : public SceneComponent
 {
 public:
+    SpotLightComponent()
+    {
+        TypeName = std::string("SpotLightComponent");
+    }
 
     void OnRegister() override;
     void OnUnregister() override;

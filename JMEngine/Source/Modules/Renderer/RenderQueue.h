@@ -6,30 +6,28 @@
 #include <memory>
 
 #include "RenderStruct.h"
-#include "../Game/MeshData.h"
 
+class GPUMeshBase;
 class MaterialInstance;
 class Material;
-//struct MeshData;
 
 struct RenderItem
 {
-    GPUMesh* mesh;
+    GPUMeshBase* mesh;
     std::vector<MaterialInstance*> materials;
-    //MaterialInstance* materialInstance = nullptr;
     
     DirectX::XMMATRIX world = DirectX::XMMatrixIdentity();
-
-
-
+    
     bool castShadow = true;
     bool receiveShadow = true;
+    bool bSkinned = false;
 
     uint64_t sortKey = 0;
 };
 
 struct RenderQueue
 {
+    std::vector<RenderItem> cubeMap;
     std::vector<RenderItem> opaque;
     std::vector<RenderItem> transparent;
     std::vector<RenderItem> shadowCasters;
@@ -39,5 +37,6 @@ struct RenderQueue
         opaque.clear();
         transparent.clear();
         shadowCasters.clear();
+        cubeMap.clear();
     }
 };

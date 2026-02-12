@@ -2,11 +2,15 @@
 #include <d3d11.h>
 #include <wrl/client.h>
 #include <DirectXMath.h>
+#include <vector>
+
 #include "RenderTypes.h"
 #include "../Core/Settings/RenderSettings.h"
 
 struct alignas(16) CBFrame
 {
+    DirectX::XMFLOAT4X4 view;
+    DirectX::XMFLOAT4X4 Projection;
     DirectX::XMFLOAT4X4 viewProjection;
     DirectX::XMFLOAT3 cameraPosition;
     float _pad0;
@@ -52,6 +56,12 @@ struct alignas(16) CBToneMap
     float Pad[2];
 };
 
+struct alignas(16) CBBoneMeta
+{
+    uint32_t BoneCount = 0;
+    uint32_t _pad[3] = { 0,0,0 };
+};
+
 class FrameResources
 {
 public:
@@ -63,6 +73,7 @@ public:
     void UpdateLight(ID3D11DeviceContext* ctx, const CBLight& data);
     void UpdateShadow(ID3D11DeviceContext* ctx, const CBShadow& data);
     void UpdatePhong(ID3D11DeviceContext* ctx, const CBLightPhong& data);
+    void UpdateBones(ID3D11DeviceContext* ctx, const DirectX::XMFLOAT4X4* bones, uint32_t boneCount);
 
     ID3D11SamplerState* GetCommonSampler() const { return m_CommonSampler.Get(); }
     ID3D11SamplerState* GetShadowSampler() const { return m_ShadowSampler.Get(); }
@@ -75,13 +86,15 @@ private:
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_CBObject;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_CBLight;
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_CBShadow;
-    
     Microsoft::WRL::ComPtr<ID3D11Buffer> m_CBLightPhong;
 
     Microsoft::WRL::ComPtr<ID3D11SamplerState> m_CommonSampler;
     Microsoft::WRL::ComPtr<ID3D11SamplerState> m_ShadowSampler;
     Microsoft::WRL::ComPtr<ID3D11SamplerState> m_CubeMapSampler;
     
-    
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_BoneSB;
+    Microsoft::WRL::ComPtr<ID3D11ShaderResourceView> m_BoneSRV;
+    Microsoft::WRL::ComPtr<ID3D11Buffer> m_CBBoneMeta;
+
 };
 
