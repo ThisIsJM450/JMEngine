@@ -37,11 +37,6 @@ static uint ClampBoneIndex(uint i)
 
 static float4x4 MakeSkinMatrix(uint4 idx, float4 w)
 {
-    // idx.x = ClampBoneIndex(idx.x);
-    // idx.y = ClampBoneIndex(idx.y);
-    // idx.z = ClampBoneIndex(idx.z);
-    // idx.w = ClampBoneIndex(idx.w);
-
     return gBones[idx.x] * w.x +
            gBones[idx.y] * w.y +
            gBones[idx.z] * w.z +
@@ -77,17 +72,8 @@ static float3x3 Inverse3x3(float3x3 m)
 VSOut VSMain(VSIn vin)
 {
     VSOut o;
-
-    // 1) Skinning (object space)
+    
     float4x4 skin = MakeSkinMatrix(vin.boneIdx, vin.weight);
-    /*
-    float3 skPos = float3(0.f, 0.f, 0.f);
-    float3 skN = float3(0.f, 0.f, 0.f);
-    float3 skT = float3(0.f, 0.f, 0.f);
-    for (int i = 0; i < 4; i++)
-    {
-        skPos += vin.weight.x * mul(float4(vin.pos, 1), gBones[vin.boneIdx.x]).xyz;
-    }*/
 
     float3 skPos = mul(float4(vin.pos, 1), skin).xyz;
     float3 skN   = mul(vin.n, (float3x3)skin);
@@ -111,6 +97,4 @@ VSOut VSMain(VSIn vin)
 
     o.uv = vin.uv;
     return o;
-
-    
 }

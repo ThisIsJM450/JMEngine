@@ -1,0 +1,55 @@
+[2026-02-27 03:16:06] [RuntimeValidate] Selected actor is not Character. Name=skySphere
+[2026-02-27 07:31:43] [RuntimeValidate] Selected actor is not Character. Name=skySphere
+[2026-02-27 12:40:04] [RuntimeValidate] Selected actor is not Character. Name=skySphere
+[2026-02-27 12:40:04] [RuntimeValidate] Selected actor is not Character. Name=Plane
+[2026-02-27 12:40:06] [RuntimeValidate][FullDelta] PASS PosMax=0.000016 (Bone=49:RightHandRing2, Frame=1166) RotMaxDeg=0.055953 (Bone=32:RightShoulder, Frame=16) RelRotMaxDeg=0.068528 (Bone=41:RightHandIndex2, Frame=925) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 12:40:38] [RuntimeValidate] Selected actor is not Character. Name=skySphere
+[2026-02-27 12:40:40] [RuntimeValidate][FullDelta] PASS PosMax=0.000016 (Bone=31:LeftHandPinky4, Frame=1184) RotMaxDeg=0.055953 (Bone=31:LeftHandPinky4, Frame=27) RelRotMaxDeg=0.068528 (Bone=18:LeftHandIndex3, Frame=22) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 12:40:44] [RuntimeValidate][FullDelta] PASS PosMax=0.000006 (Bone=47:RightHandMiddle4, Frame=150) RotMaxDeg=0.055953 (Bone=23:LeftHandMiddle4, Frame=19) RelRotMaxDeg=0.055953 (Bone=14:LeftHandThumb3, Frame=9) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 13:47:46] [RuntimeValidate] Selected actor is not Character. Name=skySphere
+[2026-02-27 14:09:24] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:09:27] [RuntimeValidate][FullDelta] PASS PosMax=0.000017 (Bone=26:LeftHandRing3, Frame=1177) RotMaxDeg=0.055953 (Bone=41:RightHandIndex2, Frame=2) RelRotMaxDeg=0.068528 (Bone=26:LeftHandRing3, Frame=117) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:09:42] [RuntimeValidate][FullDelta] PASS PosMax=0.000019 (Bone=49:RightHandRing2, Frame=1196) RotMaxDeg=0.055953 (Bone=64:RightToeBase, Frame=14) RelRotMaxDeg=0.068528 (Bone=33:RightArm, Frame=109) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:09:53] [RuntimeValidate][FullDelta] PASS PosMax=0.000019 (Bone=5:Neck, Frame=1111) RotMaxDeg=0.055953 (Bone=41:RightHandIndex2, Frame=5) RelRotMaxDeg=0.068528 (Bone=43:RightHandIndex4, Frame=481) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:10:16] [RuntimeValidate][FullDelta] PASS PosMax=0.000019 (Bone=49:RightHandRing2, Frame=1131) RotMaxDeg=0.055953 (Bone=42:RightHandIndex3, Frame=3) RelRotMaxDeg=0.068528 (Bone=34:RightForeArm, Frame=139) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:10:27] [RuntimeValidate][FullDelta] PASS PosMax=0.000020 (Bone=7:End, Frame=1087) RotMaxDeg=0.055953 (Bone=50:RightHandRing3, Frame=7) RelRotMaxDeg=0.068528 (Bone=19:LeftHandIndex4, Frame=104) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:12:29] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:14:49] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:14:54] [RuntimeValidate][FullDelta] PASS PosMax=0.000015 (Bone=22:LeftHandMiddle3, Frame=1023) RotMaxDeg=0.055953 (Bone=59:LeftToeBase, Frame=27) RelRotMaxDeg=0.068528 (Bone=56:LeftUpLeg, Frame=71) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:14:58] [RuntimeValidate][FullDelta] PASS PosMax=0.000017 (Bone=38:RightHandThumb3, Frame=1083) RotMaxDeg=0.055953 (Bone=42:RightHandIndex3, Frame=9) RelRotMaxDeg=0.068528 (Bone=26:LeftHandRing3, Frame=308) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:15:00] [RuntimeValidate][FullDelta] PASS PosMax=0.000016 (Bone=27:LeftHandRing4, Frame=1190) RotMaxDeg=0.055953 (Bone=51:RightHandRing4, Frame=11) RelRotMaxDeg=0.068528 (Bone=31:LeftHandPinky4, Frame=142) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:15:53] [RuntimeValidate] Selected actor is not Character. Name=skySphere
+[2026-02-27 14:16:15] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:16:25] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:16:36] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:16:37] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:16:38] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:16:39] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:16:40] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:16:41] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:16:42] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:16:43] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:17:10] [RuntimeValidate] Selected actor is not Character. Name=skySphere
+[2026-02-27 14:20:55] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:22:35] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:23:43] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:24:33] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:24:40] [RuntimeValidate][FullDelta] PASS PosMax=0.000116 (Bone=50:RightHandRing3, Frame=1200) RotMaxDeg=0.055953 (Bone=8:LeftShoulder, Frame=4) RelRotMaxDeg=0.068528 (Bone=20:LeftHandMiddle1, Frame=357) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:25:29] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:30:38] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira
+[2026-02-27 14:34:32] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira, RootScaleOn=(0.2,0.2,0.2), RootScaleOff=(0.2,0.2,0.2), MeshScaleOn=(1,1,1), MeshScaleOff=(1,1,1)
+[2026-02-27 14:35:26] [RuntimeValidate][FullDelta] PASS PosMax=0.000102 (Bone=7:End, Frame=1194) RotMaxDeg=0.055953 (Bone=32:RightShoulder, Frame=59) RelRotMaxDeg=0.068528 (Bone=54:RightHandPinky3, Frame=145) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:36:00] [RuntimeValidate][FullDelta] PASS PosMax=0.000000 (Bone=0:root, Frame=0) RotMaxDeg=0.055953 (Bone=0:root, Frame=30) RelRotMaxDeg=0.068528 (Bone=48:RightHandRing1, Frame=969) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-02-27 14:39:32] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira, RootScaleOn=(0.2,0.2,0.2), RootScaleOff=(0.2,0.2,0.2), MeshScaleOn=(1,1,1), MeshScaleOff=(1,1,1)
+[2026-02-27 14:41:18] [RootMotionTestSetup][Success] Actors=(RM_Test_On,RM_Test_Off), Mesh=/Game/Mesh/passive_marker_man, Anim=/Game/Animation/Capoeira, RootScaleOn=(0.02,0.02,0.02), RootScaleOff=(0.02,0.02,0.02), MeshScaleOn=(1,1,1), MeshScaleOff=(1,1,1)
+[2026-02-27 14:41:28] [RuntimeValidate][FullDelta] PASS PosMax=0.000015 (Bone=7:End, Frame=1199) RotMaxDeg=0.055953 (Bone=12:LeftHandThumb1, Frame=6) RelRotMaxDeg=0.055953 (Bone=33:RightArm, Frame=16) Thresholds(Pos=0.010000,RotDeg=0.200000,RelRotDeg=0.200000)
+[2026-03-10 20:30:28] [RuntimeValidate] Selected actor is not Character. Name=skySphere
+[2026-03-10 20:31:04] [RuntimeValidate] Selected actor is not Character. Name=Plane
+[2026-03-10 20:31:04] [RuntimeValidate] Selected actor is not Character. Name=Sphere2
+[2026-05-15 23:46:01] [RuntimeValidate] Selected actor is not Character. Name=Plane
+[2026-05-15 23:46:02] [RuntimeValidate] Selected actor is not Character. Name=Sphere2
+[2026-05-15 23:46:02] [RuntimeValidate] Selected actor is not Character. Name=Sphere1
+[2026-05-15 23:46:04] [RuntimeValidate] Selected actor is not Character. Name=Sphere3
+[2026-05-15 23:46:05] [RuntimeValidate] Selected actor is not Character. Name=Sphere3
+[2026-05-15 23:46:05] [RuntimeValidate] Selected actor is not Character. Name=SpotLight
+[2026-05-15 23:46:06] [RuntimeValidate] Selected actor is not Character. Name=Sphere2

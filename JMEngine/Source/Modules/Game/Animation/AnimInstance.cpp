@@ -46,8 +46,14 @@ void AnimInstance::EvaluateSequence(float dt)
         if (m_bLoop)
         {
             // fmod 안정(음수 방지)
-            while (m_TimeInSection >= sec.LengthSec) m_TimeInSection -= sec.LengthSec;
-            while (m_TimeInSection < 0.f)            m_TimeInSection += sec.LengthSec;
+            while (m_TimeInSection >= sec.LengthSec)
+            {
+                m_TimeInSection -= sec.LengthSec;
+            }
+            while (m_TimeInSection < 0.f)
+            {
+                m_TimeInSection += sec.LengthSec;
+            }
         }
         else
         {
@@ -56,7 +62,10 @@ void AnimInstance::EvaluateSequence(float dt)
                 m_TimeInSection = sec.LengthSec;
                 m_bPlaying = false; // 끝나면 자동 정지(원하면 유지)
             }
-            if (m_TimeInSection < 0.f) m_TimeInSection = 0.f;
+            if (m_TimeInSection < 0.f)
+            {
+                m_TimeInSection = 0.f;
+            }
         }
     }
 
@@ -64,47 +73,17 @@ void AnimInstance::EvaluateSequence(float dt)
     SampleSectionToLocalPose(sec, m_TimeInSection);
 }
 
-/*
-const std::vector<DirectX::XMFLOAT4X4> AnimInstance::GetAnimRefPose() const
-{
-    if (!m_Skeleton)
-    {
-        return std::vector<DirectX::XMFLOAT4X4>();
-    }
-    const auto& Nodes = m_Skeleton->Nodes;
-    std::vector<DirectX::XMFLOAT4X4> nodeLocal(Nodes.size());
-    for (size_t ni = 0; ni < Nodes.size(); ++ni)
-    {
-        nodeLocal[ni] = Nodes[ni].RefLocal;
-    }
-    if (!m_bPlaying || !m_Seq)
-    {
-        // 1) nodeLocal: RefLocal로 시작 
-
-        return nodeLocal;
-    }
-    const AnimSection& sec = m_Seq->Sections[m_SectionIndex];
-    for (size_t bi = 0; bi < m_Skeleton->Bones.size(); ++bi)
-    {
-        XMStoreFloat4x4(&nodeLocal[m_Skeleton->BoneToNode[bi]], sec.RefPose[bi].ToMatrix());
-    }
-    return nodeLocal;
-}
-*/
-
 void AnimInstance::SampleSectionToLocalPose(const AnimSection& sec, float tSec)
 {
-    // 기본은 RefPose
-    /*
-    m_LocalPose = m_Skeleton->RefLocalPose;
-    if (m_LocalPose.size() != m_BoneCount)
-    {
-        m_LocalPose.resize(m_BoneCount);
-    }
-*/
     
-    if (m_BoneCount == 0 || sec.NumFrames == 0) return;
-    if (sec.Keys.size() != (size_t)sec.NumFrames * m_BoneCount) return;
+    if (m_BoneCount == 0 || sec.NumFrames == 0)
+    {
+        return;
+    }
+    if (sec.Keys.size() != (size_t)sec.NumFrames * m_BoneCount)
+    {
+        return;
+    }
 
     // frame0, frame1, alpha
     float clamped = tSec;

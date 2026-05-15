@@ -135,6 +135,7 @@ void SkeletalMeshComponent::BuildFinalPalette_FromLocalPose(const std::vector<Di
     m_GlobalPose.resize(n);
     m_FinalPalette.resize(n);
 
+    // 로컬 Transform을 월드 Transform으로 변경
     BuildGlobalPose_FromLocalPose(localPose);
 
     // FinalPalette
@@ -179,10 +180,6 @@ void SkeletalMeshComponent::BuildGlobalPose_FromLocalPose(const std::vector<Dire
     {
         nodeLocal[ni] = Nodes[ni].RefLocal;
     }
-    
-    ///임시
-    //nodeLocal = m_Anim->GetAnimRefPose();
-    ///임시
 
     // 2) bone local을 해당 bone node에 덮어쓰기
     for (uint32_t bi = 0; bi < (uint32_t)Bones.size(); ++bi)
