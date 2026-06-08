@@ -3,16 +3,16 @@
 > DirectX 11 기반으로 직접 구현한 C++ 게임 엔진 — PBR 렌더러 · 스켈레탈 애니메이션 · 에셋 파이프라인 · ImGui 에디터
 > A from-scratch C++ game engine on Direct3D 11.
 
-<!--
-스크린샷을 docs/screenshots/ 에 넣고 아래 주석을 해제하세요.
-그래픽스 포트폴리오는 비주얼이 핵심입니다 — 최소 3장 권장:
-  1) PBR + IBL 렌더 결과 (DamagedHelmet 등)
-  2) ImGui 에디터 전체 화면 (콘텐츠 브라우저 + 디테일 패널 + 뷰포트)
-  3) 스켈레탈 애니메이션 / 루트모션 GIF
--->
-<!-- ![PBR Rendering](docs/screenshots/pbr.png) -->
-<!-- ![Editor](docs/screenshots/editor.png) -->
-<!-- ![Animation](docs/screenshots/animation.gif) -->
+**PBR Render**
+
+<img width="332" height="266" alt="image" src="https://github.com/user-attachments/assets/c30c5818-a04f-4155-8bf0-712b1ee6a993" />
+<img width="502" height="466" alt="image" src="https://github.com/user-attachments/assets/fdfdfd41-0c8b-4fe2-b6e5-038f799d9e6a" />
+
+**Animation**
+
+<img width="587" height="424" alt="Image" src="https://github.com/user-attachments/assets/462b4ad1-353a-4113-8b2b-85f1b1ec551d" />
+
+
 
 ---
 
